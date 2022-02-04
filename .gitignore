@@ -1,0 +1,14 @@
+# python
+*.pyc
+__pycache__/
+
+# vscode
+.vscode/
+
+# sample
+sample.py
+
+# build
+aiowmi.egg-info/
+build/
+dist/

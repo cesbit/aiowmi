@@ -1,0 +1,57 @@
+"""OBJREF_CUSTUM
+
+See: 2.2.18.6, OBJREF_CUSTOM
+"""
+import struct
+from ..dcom_const import CLSID_ActivationPropertiesIn
+from ..dcom_const import IID_IActivationPropertiesIn
+from ..dcom_const import FLAGS_OBJREF_CUSTOM
+from ..uuid import uuid_part, bin_to_str, CLSID_SZ
+from .const import FLAGS_OBJREF_STANDARD
+from .objref import ObjRef
+
+
+class ObjRefStandard(ObjRef):
+
+    __slots__ = (
+        'std_flags',
+        'c_public_refs',
+        'oxid',
+        'oid',
+        'ipid',
+        'sa_res_addr')
+
+    STANDARD_FMT = '<LLQQ'
+    STANDARD_FMT_SZ = struct.calcsize(STANDARD_FMT)
+
+    @classmethod
+    def from_data(cls, data: bytes, offset: int, size: int) \
+            -> 'ObjRefStandard':
+        end = offset+size
+        self = cls()
+
+        self.read_objref(data, offset)
+        offset += cls.OBJREF_SZ
+
+        (
+            self.std_flags,
+            self.c_public_refs,
+            self.oxid,
+            self.oid,
+        ) = struct.unpack_from(cls.STANDARD_FMT, data, offset=offset)
+        offset += cls.STANDARD_FMT_SZ
+
+        self.ipid = bin_to_str(data, offset=offset)
+        offset += CLSID_SZ
+
+        self.sa_res_addr = data[offset:end]
+        return self
+
+    def get_data(self) -> bytes:
+        return super().get_data() + struct.pack(
+            self.STANDARD_FMT,
+            self.std_flags,
+            0,
+            self.oxid,
+            self.oid
+        ) + self.sa_res_addr
