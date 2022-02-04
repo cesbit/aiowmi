@@ -76,7 +76,7 @@ class Connection:
         self._protocol = None
 
     def is_connected(self):
-        return self._protocol and self._protocol.is_connected()
+        return self._protocol
 
     def connection_info(self) -> str:
         if not self.is_connected():

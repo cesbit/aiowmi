@@ -48,6 +48,9 @@ class Protocol(asyncio.Protocol):
         logging.info('Connection lost')
         self._transport = None
 
+    def __bool__(self):
+        return self._transport is not None
+
     def data_received(self, data: bytes) -> None:
         '''
         override asyncio.Protocol
