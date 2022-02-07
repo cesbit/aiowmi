@@ -1,10 +1,11 @@
+from typing import Tuple
 from ..tools import pad
 
 
 class EncodedString:
 
     @staticmethod
-    def from_data(data, offset) -> [str, int]:
+    def from_data(data, offset) -> Tuple[str, int]:
         flags = data[offset]
         offset += 1
         if flags == 0:

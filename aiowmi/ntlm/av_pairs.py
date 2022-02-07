@@ -1,4 +1,6 @@
+import calendar
 import struct
+import time
 
 # AV_PAIR constants
 NTLMSSP_AV_EOL = 0x00

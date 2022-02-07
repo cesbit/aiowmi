@@ -14,7 +14,7 @@ from .const import WBEM_S_FALSE
 
 
 if TYPE_CHECKING:
-    from ..protocol import Protocol
+    from .protocol import Protocol
 
 
 class Query:

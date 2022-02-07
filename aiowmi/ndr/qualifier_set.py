@@ -1,4 +1,5 @@
 import struct
+from typing import Tuple
 from .qualifier import Qualifier
 from ..const import DICTIONARY_REFERENCE
 from .encoded_string import EncodedString
@@ -11,7 +12,7 @@ class QualifierSet:
     QUALIFIER_SET_SZ = struct.calcsize(QUALIFIER_SET)
 
     @classmethod
-    def from_data(cls, data: bytes, offset: int) -> ('QualifierSet', int):
+    def from_data(cls, data: bytes, offset: int) -> Tuple['QualifierSet', int]:
         self = cls()
         (
             enc_length,

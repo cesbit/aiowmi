@@ -1,5 +1,6 @@
 import struct
 import datetime
+from typing import Tuple
 
 
 class CimType:
@@ -97,7 +98,7 @@ class CimType:
     }
 
     @classmethod
-    def get_value(cls, key: int, data: bytes, offset: int) -> (int, int):
+    def get_value(cls, key: int, data: bytes, offset: int) -> Tuple[int, int]:
         fmt, size = cls.CIM_TYPES_REF[key]
         return struct.unpack_from(fmt, data, offset=offset)[0], offset + size
 

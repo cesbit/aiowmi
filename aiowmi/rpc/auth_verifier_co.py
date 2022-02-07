@@ -1,4 +1,5 @@
 import struct
+from typing import Tuple
 
 # typedef struct{
 #   u_int8 [size_is(auth_pad_length)] auth_pad[]; /* align(4) */
@@ -40,7 +41,7 @@ class RpcAuthVerifierCo:
             auth_level: int,
             auth_pad_length: int,
             auth_context_id: int,
-            auth_value: bytes) -> (bytes, int):
+            auth_value: bytes) -> Tuple[bytes, int]:
         "Retruns the packet bytes and auth_length"
         padding = b'\xFF' * auth_pad_length
 
