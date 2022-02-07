@@ -26,7 +26,7 @@ class EncodedValue:
             for _ in range(num_items):
                 item, offset = EncodedString.from_data(heap, offset)
                 arr.append(item)
-        elif cimType == CimType.CIM_ARRAY_OBJECT:
+        elif cim_type == CimType.CIM_ARRAY_OBJECT:
             # Discard the pointers
             offset += size * num_items
             for item in range(num_items):

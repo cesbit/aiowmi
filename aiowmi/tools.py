@@ -2,9 +2,11 @@ import hashlib
 import hmac
 import random
 import string
+import socket
 import struct
 from Crypto.Cipher import DES, ARC4
 from Crypto.Hash import MD4
+from typing import Tuple
 
 
 KNOWN_DES_INPUT = b"THIS!MTB"  # impacket had b"KGS!@#$%"
@@ -71,7 +73,7 @@ def compute_nthash(password: str):
 def hmac_md5(key, data):
     hash = hmac.new(key, digestmod=hashlib.md5)
     hash.update(data)
-    return h.digest()
+    return hash.digest()
 
 
 def ntowf_v2(user: str, password: str, domain: bytes):
@@ -96,7 +98,7 @@ def encrypted_session_key(key_exchange_key, exported_session_key):
     return ARC4.new(key_exchange_key).encrypt(exported_session_key)
 
 
-def read_string_bindings(data: bytes, offset: int) -> (list, int):
+def read_string_bindings(data: bytes, offset: int) -> Tuple[list, int]:
     bindings = []
 
     while True:

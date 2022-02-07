@@ -1,15 +1,17 @@
 import logging
 import asyncio
 import struct
-from typing import Optional
+from typing import Optional, Callable
 from .dcom import Dcom
 from .rpc.common import RpcCommon
 from .rpc.response import RpcResponse
+from .rpc.request import RpcRequest
 from .rpc.fault import RpcFault
 from .ndr.interface import NdrInterface
 from .rpc.const import PFC_LAST_FRAG
 from .rpc.baseresp import RpcBaseResp
 from .request import Request
+from .exceptions import DcomException
 
 
 class Protocol(asyncio.Protocol):

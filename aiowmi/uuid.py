@@ -1,6 +1,7 @@
 import re
 import binascii
 import struct
+from typing import Tuple
 
 
 CLSID_SZ = 16
@@ -56,7 +57,7 @@ def bin_to_str(bin: bytes, offset: int) -> str:
         uuid1, uuid2, uuid3, uuid4, uuid5, uuid6)
 
 
-def bin_to_uuid_ver(bin, offset) -> (str, str):
+def bin_to_uuid_ver(bin, offset) -> Tuple[str, str]:
     uuidstr = bin_to_str(bin, offset)
     ma, mi = struct.unpack_from("<HH", bin, offset+16)
     return uuidstr, f'{ma}.{mi}'

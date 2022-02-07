@@ -1,4 +1,5 @@
 import struct
+from typing import Tuple
 from .encoded_string import EncodedString
 from .class_part import ClassPart
 from .heap import Heap
@@ -14,7 +15,7 @@ class ObjectBlock:
     INSTANCE_SZ = struct.calcsize(INSTANCE)
 
     @classmethod
-    def from_data(cls, data: bytes, offset: int) -> ('ObjectBlock', int):
+    def from_data(cls, data: bytes, offset: int) -> Tuple['ObjectBlock', int]:
         self = cls()
         (
             encoding_len,

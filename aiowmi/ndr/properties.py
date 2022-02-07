@@ -1,5 +1,6 @@
 import struct
 from collections import OrderedDict
+from typing import Tuple
 from ..const import DICTIONARY_REFERENCE
 from .encoded_string import EncodedString
 from .property_info import PropertyInfo
@@ -19,7 +20,7 @@ class Properties:
     properties: OrderedDict
 
     @classmethod
-    def from_data(cls, data: bytes, offset: int) -> ('Properties', int):
+    def from_data(cls, data: bytes, offset: int) -> Tuple['Properties', int]:
         self = cls()
 
         self.props = []

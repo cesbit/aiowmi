@@ -3,6 +3,7 @@
 See MS-DCOM, 2.2.13.4
 """
 import struct
+from typing import Tuple
 from ..tools import gen_cid
 from .com_version import COM_VERSION
 
@@ -26,7 +27,7 @@ class ORPCTHAT:
     EXT64_SZ = struct.calcsize(EXT64)
 
     @classmethod
-    def from_data(cls, data: bytes, offset: int = 0) -> ('ORPCTHAT', int):
+    def from_data(cls, data: bytes, offset: int = 0) -> Tuple['ORPCTHAT', int]:
         orpcthat = cls()
 
         orpcthat.flags, extensions = struct.unpack_from(

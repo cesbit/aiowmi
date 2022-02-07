@@ -62,7 +62,7 @@ def _seal(
         message_to_sign: bytes,
         message_to_encrypt: bytes,
         signing_key: bytes,
-        handle: Callable) -> (bytes, bytes):
+        handle: Callable) -> Tuple[bytes, bytes]:
     sealed_message = handle(message_to_encrypt)
     message_signature = NTLMMessageSignature.get_data(
         flags,

@@ -1,4 +1,5 @@
 import struct
+from typing import Tuple
 
 
 class Heap:
@@ -7,7 +8,7 @@ class Heap:
     HEAP_SZ = struct.calcsize(HEAP)
 
     @classmethod
-    def from_data(cls, data: bytes, offset: int) -> (bytes, int):
+    def from_data(cls, data: bytes, offset: int) -> Tuple[bytes, int]:
         # ClassHeap
         (
             heap_length,

@@ -1,4 +1,5 @@
 import struct
+from typing import Tuple
 from ..cim_type import CimType
 
 
@@ -8,7 +9,7 @@ class Qualifier:
     FMT_SZ = struct.calcsize(FMT)
 
     @classmethod
-    def from_data(cls, data: bytes, offset: int) -> ('Qualifier', int):
+    def from_data(cls, data: bytes, offset: int) -> Tuple['Qualifier', int]:
         self = cls()
         (
             self.name,
