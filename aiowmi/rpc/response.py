@@ -10,6 +10,9 @@ from ..uuid import bin_to_uuid_ver
 from .baseresp import RpcBaseResp
 from .const import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from .const import RPC_C_AUTHN_WINNT
+from .const import rpc_status_codes
+from ..const import WBEM_E_LOOKUP
+from ..exceptions import WbemException
 
 
 if TYPE_CHECKING:
@@ -53,6 +56,8 @@ class RpcResponse(RpcBaseResp):
     RESPONSE_SIZE = struct.calcsize(RESPONSE_FMT)
     SIZE = RpcCommon.COMMON_SIZE + RESPONSE_SIZE
 
+    ERR_FMT = '<L'
+
     def __init__(self, dcom: Dcom, rpc_common: RpcCommon, data: bytes):
         offset = RpcCommon.COMMON_SIZE
         (
@@ -93,5 +98,15 @@ class RpcResponse(RpcBaseResp):
                 # no authentication ??
                 message = resp
             messages.append(message)
+
+        if not message.endswith(b'\x00\x00\x00\x00'):
+            # First, rpc status codes should also have an rpc fault package
+            # and are already handled.
+            # Second, WBEM_S "errors" are not relevant and can be distinguished
+            # with the 0x80000000 bit.
+            errcode, = struct.unpack('<L', message[-4:])
+            if errcode & 0x80000000:
+                errmsg = WBEM_E_LOOKUP.get(errcode, 'WBEM_E_UNKNOWN')
+                raise WbemException(errmsg, errcode)
 
         return b''.join(messages)

@@ -9,7 +9,7 @@ from .cont_elem import RpcContElem
 from ..uuid import bin_to_uuid_ver
 from .baseresp import RpcBaseResp
 from .const import rpc_status_codes
-from .exceptions import RpcException
+from ..exceptions import RpcException
 
 
 if TYPE_CHECKING:

@@ -83,7 +83,7 @@ class RpcRequest(RpcCommon):
             proto._auth_type,
             proto._auth_level,
             auth_pad_length,
-            79231,  # context id, impacket had 79231 ??
+            4242,  # context id, impacket had 79231 ??
             self.AUTH_VALUE)
 
         proto._dcom.set_call_id(self)
@@ -126,7 +126,7 @@ class RpcRequest(RpcCommon):
             proto._auth_type,
             proto._auth_level,
             auth_pad_length,
-            79231,  # context id, impacket had 79231 ??
+            4242,  # context id, impacket had 79231 ??
             self.AUTH_VALUE)
 
         proto._dcom.set_call_id(self)
