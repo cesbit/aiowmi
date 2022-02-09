@@ -214,8 +214,18 @@ class Connection:
 
         await self._bind(IID_IWbemLevel1Login, proto)
 
-        ntlm_login = NTLMLogin('//./root/cimv2')
+        return proto
+
+    async def login_ntlm(
+            self,
+            proto: Protocol,
+            namespace: str = 'root/cimv2'):
+        if not namespace.startswith('//'):
+            namespace = '//./' + namespace
+
+        ntlm_login = NTLMLogin(namespace)
         ntlm_login_pkg = ntlm_login.get_data()
+        interface = self._protocol._interface
 
         request = RpcRequest(op_num=6, uuid_str=interface.get_ipid())
 
@@ -231,6 +241,6 @@ class Connection:
         ntlm_login_resp = NTLMLoginResponse(message)
 
         proto._interface = ntlm_login_resp
-        proto._iid = IID_IWbemServices
+        self._iid = IID_IWbemServices
 
         return proto

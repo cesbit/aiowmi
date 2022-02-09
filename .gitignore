@@ -6,7 +6,7 @@ __pycache__/
 .vscode/
 
 # sample
-sample.py
+sample*.py
 
 # build
 aiowmi.egg-info/

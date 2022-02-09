@@ -40,6 +40,12 @@ async def main():
     await conn.connect()
     try:
         service = await conn.negotiate_ntlm()
+        # If different namespaces are used, the function below may be called in
+        # a the `for-loop` before each query using the syntax:
+        #
+        #   await conn.login_ntlm(service, namespace='...')
+        await conn.login_ntlm(service)
+
         for query in queries:
             print(f"""
 ###############################################################################

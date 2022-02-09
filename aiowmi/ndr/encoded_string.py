@@ -16,7 +16,7 @@ class EncodedString:
             end = data.find(b'\x00', offset)
             raw = data[offset:end]
             try:
-                s = raw.decode('ascii')
+                s = raw.decode('ascii')  # fast, works 99.9% of the time
             except UnicodeDecodeError:
                 n = len(raw)
                 s = bytes(chain(*zip(raw, b'\x00'*n))).decode('utf-16le')
