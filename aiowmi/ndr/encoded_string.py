@@ -1,4 +1,5 @@
 from typing import Tuple
+from itertools import chain
 from ..tools import pad
 
 
@@ -9,12 +10,17 @@ class EncodedString:
         flags = data[offset]
         offset += 1
         if flags == 0:
-            # ASCII
+            # COMPRESSED UNICODE (UTF-16le)
             end = data.find(b'\x00', offset)
             raw = data[offset:end]
-            return raw.decode('ascii'), end + 1
+            try:
+                s = raw.decode('ascii')
+            except UnicodeDecodeError:
+                n = len(raw)
+                s = bytes(chain(*zip(raw, b'\x00'*n))).decode('utf-16le')
 
-        # assert (0)
+            return s, end + 1
+
         # UNICODE
         end = data.find(b'\x00\x00')
 
