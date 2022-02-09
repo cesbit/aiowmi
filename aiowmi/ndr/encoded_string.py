@@ -5,6 +5,8 @@ from ..tools import pad
 
 class EncodedString:
 
+    # 2.2.78 Encoded-String [MS-WMIO]
+
     @staticmethod
     def from_data(data, offset) -> Tuple[str, int]:
         flags = data[offset]
