@@ -6,6 +6,7 @@ from .scm_reply_info_data import ScmReplyInfoData
 from .props_out_info import PropsOutInfo
 from ..tools import is_fqdn
 from .interface import NdrInterface
+from ..exceptions import NoBindingException
 
 
 """
@@ -65,10 +66,15 @@ class RemoteCreateInstanceResponse(NdrInterface):
                 else:
                     port = 0
 
-                if binding.upper().find(self._target) < 0:
-                    continue
-
                 self._binding = (binding, port)
+
+                if binding.upper().find(self._target) >= 0:
+                    # take this binding, otherwise just the last one
+                    break
+
+        if self._binding is None:
+            raise NoBindingException('no network binding has been found')
+
         return self._binding
 
     def get_ipid(self) -> int:

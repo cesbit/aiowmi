@@ -12,7 +12,7 @@ from .const import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from .const import RPC_C_AUTHN_WINNT
 from .const import rpc_status_codes
 from ..const import WBEM_E_LOOKUP
-from ..exceptions import WbemException
+from ..exceptions import wbem_exception
 
 
 if TYPE_CHECKING:
@@ -106,7 +106,6 @@ class RpcResponse(RpcBaseResp):
             # with the 0x80000000 bit.
             errcode, = struct.unpack('<L', message[-4:])
             if errcode & 0x80000000:
-                errmsg = WBEM_E_LOOKUP.get(errcode, 'WBEM_E_UNKNOWN')
-                raise WbemException(errmsg, errcode)
+                raise wbem_exception(errcode)
 
         return b''.join(messages)
