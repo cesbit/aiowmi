@@ -12,7 +12,7 @@ from .rpc.const import PFC_LAST_FRAG
 from .rpc.baseresp import RpcBaseResp
 from .request import Request
 from .exceptions import DcomException
-
+from .buf import Buf
 
 class Protocol(asyncio.Protocol):
 
@@ -20,7 +20,7 @@ class Protocol(asyncio.Protocol):
         self._transport = None
         self._fut = None
         self._size = None
-        self._recvbuf = b''
+        self._buf = None
         self._interface: NdrInterface = None
         self._auth_type: int = None
         self._auth_level: int = None
@@ -57,17 +57,26 @@ class Protocol(asyncio.Protocol):
         '''
         override asyncio.Protocol
         '''
-        call_id, = struct.unpack_from('<L', data, offset=12)
-        req = self._requests[call_id]
+        if self._buf is None:
+            size, _, call_id, = struct.unpack_from('<HHL', data, offset=8)
+            self._buf = Buf(size, call_id)
 
-        # print('RECV!! Call Id:', call_id)
-        # print(data)
+        more = self._buf.append(data)
+
+        if more is False:
+            return None
+
+        req, data, = self._requests[self._buf.call_id], self._buf.data
+
+        self._buf = None
 
         if req.size is not None:
             assert req.fut  # when size is set, we must have a future
             req.buf += data
 
             if len(req.buf) < req.size:
+                if more:
+                    self.data_received(more)
                 return
 
             data = req.buf[:req.size]
@@ -80,6 +89,9 @@ class Protocol(asyncio.Protocol):
             req.fut = None
         elif data:
             req.buf += data
+
+        if more:
+            self.data_received(more)
 
     def write(self, data: bytes):
         # call_id, = struct.unpack_from('<L', data, offset=12)

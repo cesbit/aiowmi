@@ -1,3 +1,7 @@
+class NoBindingException(Exception):
+    pass
+
+
 class DcomException(Exception):
     pass
 
