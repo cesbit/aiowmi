@@ -9,10 +9,6 @@ class DcomException(Exception):
     pass
 
 
-class WbemStopIteration(Exception):
-    pass
-
-
 class RpcException(Exception):
     def __init__(self, msg, code):
         msg = f'{msg} ({code})'
@@ -35,6 +31,9 @@ class WbemNoError(WbemException):
 
 class WbemFalse(WbemException):
     msg = 'WBEM_S_FALSE'
+
+
+WbemStopIteration = WbemFalse
 
 
 class WbemTimeout(WbemException):

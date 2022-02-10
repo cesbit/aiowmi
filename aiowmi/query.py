@@ -9,8 +9,7 @@ from .ntlm.const import NTLM_AUTH_PKT_INTEGRITY
 from .rpc.request import RpcRequest
 from .rpc.response import RpcResponse
 from .tools import get_null
-from .exceptions import WbemStopIteration
-from .const import WBEM_S_FALSE
+from .exceptions import wbem_exception
 
 
 if TYPE_CHECKING:
@@ -77,7 +76,7 @@ class Query:
         message = rpc_response.get_message(self._proto)
         next_response = NextResponse(message)
 
-        if next_response.error_code == WBEM_S_FALSE:
-            raise WbemStopIteration()
+        if next_response.error_code:
+            raise wbem_exception(next_response.error_code)
 
         return next_response
