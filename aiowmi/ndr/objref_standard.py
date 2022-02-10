@@ -39,6 +39,12 @@ class ObjRefStandard(ObjRef):
             self.oxid,
             self.oid,
         ) = struct.unpack_from(cls.STANDARD_FMT, data, offset=offset)
+
+        # 3.2.4.4 Managing Object Lifetime
+        # if the public reference counter is 0, then we need to get a new
+        # reference (RemAddRef) and release when finished (RemRelease).
+        assert self.c_public_refs, 'public reference counter is 0'
+
         offset += cls.STANDARD_FMT_SZ
 
         self.ipid = bin_to_str(data, offset=offset)
