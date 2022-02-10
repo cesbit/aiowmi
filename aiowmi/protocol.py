@@ -14,6 +14,7 @@ from .request import Request
 from .exceptions import DcomException
 from .buf import Buf
 
+
 class Protocol(asyncio.Protocol):
 
     def __init__(self, loop: Optional[asyncio.AbstractEventLoop] = None):
