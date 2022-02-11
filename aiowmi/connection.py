@@ -49,12 +49,14 @@ class Connection:
             host: str,
             username: str,
             password: str,
+            domain: str = '',
             port: int = 135,
             loop: Optional[asyncio.AbstractEventLoop] = None):
         self._host = host
         self._port = port
         self._username = username
         self._password = password
+        self._domain = domain
         self._loop = asyncio.get_event_loop() if loop is None else loop
         self._protocol: Optional[Protocol] = None
         self._timeout: int = 5
@@ -107,7 +109,8 @@ class Connection:
             self._username,
             self._password,
             ntlm_auth_challenge.target_info,
-            ntlm_auth_challenge.server_challenge)
+            ntlm_auth_challenge.server_challenge,
+            domain_name=self._domain)
 
         assert flags == 3767042613
 
