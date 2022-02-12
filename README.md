@@ -15,35 +15,39 @@ from aiowmi.exceptions import WbemStopIteration
 
 async def main():
 
-    host = '10.0.0.1'  # ip address, TODO: test with host name
-    username = 'username'  # TODO: test with domain user
+    host = '10.0.0.1'  # ip address or hostname or fqdn
+    username = 'username' 
     password = 'password'
+    domain = ''  # optional domain name
 
     queries = (
         Query('SELECT * FROM Win32_OperatingSystem'),
         Query('SELECT * FROM Win32_NetworkAdapter'),
         Query('SELECT * FROM Win32_LoggedOnUser'),
         Query('SELECT * FROM Win32_PnpEntity'),
-        # Query('SELECT Caption, Description, InstallDate, InstallDate2, '
-        #       'InstallLocation, InstallSource, InstallState, Language, '
-        #       'LocalPackage, Name, PackageCache, PackageCode, PackageName, '
-        #       'ProductID, RegCompany, RegOwner, SKUNumber, Transforms, '
-        #       'URLInfoAbout, URLUpdateInfo, Vendor, Version '
-        #       'FROM Win32_Product'),
-        # Query('SELECT Name, DiskReadsPersec, DiskWritesPersec '
-        #       'FROM Win32_PerfFormattedData_PerfDisk_LogicalDisk'),
+        Query('SELECT Caption, Description, InstallDate, InstallDate2, '
+              'InstallLocation, InstallSource, InstallState, Language, '
+              'LocalPackage, Name, PackageCache, PackageCode, PackageName, '
+              'ProductID, RegCompany, RegOwner, SKUNumber, Transforms, '
+              'URLInfoAbout, URLUpdateInfo, Vendor, Version '
+              'FROM Win32_Product'),
+        Query('SELECT Name, DiskReadsPersec, DiskWritesPersec '
+              'FROM Win32_PerfFormattedData_PerfDisk_LogicalDisk'),
     )
 
     start = time.time()
 
-    conn = Connection(host, username, password)
+    conn = Connection(host, username, password, domain=domain)
     await conn.connect()
     try:
         service = await conn.negotiate_ntlm()
+        
         # If different namespaces are used, the function below may be called in
-        # a the `for-loop` before each query using the syntax:
+        # the `for-loop` before each query using the syntax:
         #
         #   await conn.login_ntlm(service, namespace='...')
+        #
+        # The default namespace is 'root/cimv2'
         await conn.login_ntlm(service)
 
         for query in queries:
@@ -59,7 +63,22 @@ async def main():
                     res = await query.next()
                 except WbemStopIteration:
                     break
-
+                
+                # Function `get_properties(..)` accepts a few keyword arguments:
+                #
+                # ignore_defaults: 
+                #        Ignore default values. Set missing values to None
+                #        if a value does not exist in the current class.
+                #        ignore_defaults will always be True if ignore_missing
+                #        is set to True.
+                # ignore_missing: 
+                #       If set to True, values missing in the current class
+                #       will not be part of the result.
+                # load_qualifiers: 
+                #       Load the qualifiers of the properties. If not, the
+                #       property qualifier_set will have the offset in the
+                #       heap where the qualifiers are stored.
+                #
                 props = res.get_properties(ignore_missing=True)
 
                 for name, prop in props.items():
