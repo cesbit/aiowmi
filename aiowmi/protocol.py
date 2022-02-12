@@ -55,9 +55,12 @@ class Protocol(asyncio.Protocol):
         return self._transport is not None
 
     def data_received(self, data: bytes) -> None:
-        '''
-        override asyncio.Protocol
-        '''
+        """override asyncio.Protocol
+
+        Keep a global buffer for fragmented data on the socket, and separate
+        buffers for each request since parts of the requests may be received
+        within diffrent package fragments.
+        """
         if self._buf is None:
             size, _, call_id, = struct.unpack_from('<HHL', data, offset=8)
             self._buf = Buf(size, call_id)
