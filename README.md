@@ -75,7 +75,7 @@ async def main():
                 #       If set to True, values missing in the current class
                 #       will not be part of the result.
                 # load_qualifiers: 
-                #       Load the qualifiers of the properties. If not, the
+                #       Load the qualifiers of the properties. If False, the
                 #       property qualifier_set will have the offset in the
                 #       heap where the qualifiers are stored.
                 #
