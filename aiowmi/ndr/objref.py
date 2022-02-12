@@ -47,3 +47,5 @@ class ObjRef:
         if flags & FLAGS_OBJREF_CUSTOM:
             from .objref_custom import ObjRefCustom
             return ObjRefCustom.from_data(data, offset, size)
+
+        assert 0, f'unsupported ObjRef (flags: {flags})'
