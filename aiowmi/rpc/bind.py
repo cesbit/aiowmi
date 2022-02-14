@@ -29,8 +29,8 @@ class RpcBind(RpcCommon):
     def __init__(self):
         super().init(MSRPC_BIND)
 
-        self._max_xmit_frag = 0x10b8    # TODO: 4280 from impacket, why?
-        self._max_recv_frag = 0x10b8    # TODO: 4280 from impacket, why?
+        self._max_xmit_frag = 0x10b8
+        self._max_recv_frag = 0x10b8
         self._assoc_group_id = 0
         self._n_context_elem = 0
         self._reserved = 0

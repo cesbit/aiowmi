@@ -9,7 +9,7 @@ from Crypto.Hash import MD4
 from typing import Tuple
 
 
-KNOWN_DES_INPUT = b"THIS!MTB"  # impacket had b"KGS!@#$%"
+KNOWN_DES_INPUT = b"THIS!MTB"
 
 
 def pad4(size) -> int:

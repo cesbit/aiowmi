@@ -16,7 +16,7 @@ from aiowmi.exceptions import WbemStopIteration
 async def main():
 
     host = '10.0.0.1'  # ip address or hostname or fqdn
-    username = 'username' 
+    username = 'username'
     password = 'password'
     domain = ''  # optional domain name
 
@@ -38,10 +38,11 @@ async def main():
     start = time.time()
 
     conn = Connection(host, username, password, domain=domain)
+    service = None
     await conn.connect()
     try:
         service = await conn.negotiate_ntlm()
-        
+
         # If different namespaces are used, the function below may be called in
         # the `for-loop` before each query using the syntax:
         #
@@ -63,18 +64,18 @@ async def main():
                     res = await query.next()
                 except WbemStopIteration:
                     break
-                
+
                 # Function `get_properties(..)` accepts a few keyword arguments:
                 #
-                # ignore_defaults: 
+                # ignore_defaults:
                 #        Ignore default values. Set missing values to None
                 #        if a value does not exist in the current class.
                 #        ignore_defaults will always be True if ignore_missing
                 #        is set to True.
-                # ignore_missing: 
+                # ignore_missing:
                 #       If set to True, values missing in the current class
                 #       will not be part of the result.
-                # load_qualifiers: 
+                # load_qualifiers:
                 #       Load the qualifiers of the properties. If False, the
                 #       property qualifier_set will have the offset in the
                 #       heap where the qualifiers are stored.
@@ -85,6 +86,11 @@ async def main():
                     print(name, '\n\t', prop.value)
 
                     if prop.is_reference():
+                        # References can easy be queried using the
+                        # get_reference(..) function. The function accepts a
+                        # keyword argument `filter_props=[..]` with an optional
+                        # list of properties to query. If omitted, the function
+                        # returns all (*) properties.
                         res = await prop.get_reference(service)
                         ref_props = res.get_properties(ignore_missing=True)
                         for name, prop in ref_props.items():
@@ -93,10 +99,9 @@ async def main():
                 print(f"""
 ----------------------------------- End Item ----------------------------------
 """)
-    except Exception:
-        raise
     finally:
-        service.close()
+        if service:
+            service.close()
         conn.close()
         end = time.time()
         print('done in ', end-start)

@@ -54,7 +54,7 @@ class Dcom:
             RPC_C_AUTHN_WINNT,
             auth_level,
             auth_pad_length,
-            4242,  # context id, impacket had 79231 ??
+            4242,  # context id
             ntlm_auth_negotiate.get_data())
 
         rpc_bind.set_auth_verifier(auth_verifier, auth_length)
@@ -77,7 +77,7 @@ class Dcom:
             RPC_C_AUTHN_WINNT,
             auth_level,
             0,
-            4242,  # context id, impacket had 79231 ??
+            4242,  # context id
             ntlm_auth_data)
         rpc_common.set_pdu_data(b'    ')
         rpc_common.set_auth_verifier(auth_verifier, auth_length)

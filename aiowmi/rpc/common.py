@@ -24,9 +24,10 @@ class RpcCommon:
         self.ptype = ptype
         self.pfc_flags = PFC_FIRST_FRAG | PFC_LAST_FRAG
 
-        # TODO: value 0x10 is from impacket, not sure why..
         #  this field has documentation in c706.pdf,
         #  14.1, Data Representation Format Label
+        #   Character: ASCII
+        #   Floating point: IEEE
         self.packed_drep = 0x10
 
         self.frag_length = self.COMMON_SIZE
