@@ -3,6 +3,7 @@ from typing import Union, Optional, List, TYPE_CHECKING
 from .qualifier_set import QualifierSet
 from ..cim_type import CimType
 from .encoded_value import EncodedValue
+from ..exceptions import WbemFalse
 
 if TYPE_CHECKING:
     from ..protocol import Protocol
@@ -54,6 +55,24 @@ class PropertyInfo:
         and from the actual class.
         """
         self.value = EncodedValue.get_value(self.type, entry, heap)
+
+    def _set_type_default(self):
+        p_type = self.type & (
+            ~(CimType.CIM_ARRAY_FLAG | CimType.CIM_INHERITED_FLAG))
+
+        if self.type & CimType.CIM_ARRAY_FLAG:
+            self.value = []
+        elif p_type == CimType.CIM_TYPE_BOOLEAN:
+            self.value = False
+        elif p_type == CimType.CIM_TYPE_OBJECT:
+            self.value = None
+        elif p_type in (
+                CimType.CIM_TYPE_STRING,
+                CimType.CIM_TYPE_DATETIME,
+                CimType.CIM_TYPE_REFERENCE):
+            self.value = ''
+        else:
+            self.value = 0
 
     def get_cim_type_name(self) -> str:
         """Return the name of the CIMTYPE.
@@ -124,6 +143,7 @@ class PropertyInfo:
             conn: 'Connection',
             service: 'Protocol',
             filter_props: Optional[List[str]] = None) -> 'NextResponse':
+        """This method raises WbemFalse if the reference does not exist."""
         res = await self._get_reference(
             self.value,
             conn,
@@ -135,14 +155,21 @@ class PropertyInfo:
             self,
             conn: 'Connection',
             service: 'Protocol',
-            filter_props: Optional[List[str]] = None) -> List['NextResponse']:
+            filter_props: Optional[List[str]] = None,
+            missing_as_none: bool = False) -> List['NextResponse']:
         arr = []
         for reference in self.value:
-            res = await self._get_reference(
-                reference,
-                conn,
-                service,
-                filter_props)
+            try:
+                res = await self._get_reference(
+                    reference,
+                    conn,
+                    service,
+                    filter_props)
+            except WbemFalse:
+                if missing_as_none:
+                    res = None
+                else:
+                    raise
             arr.append(res)
 
         return arr

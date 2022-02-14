@@ -45,7 +45,6 @@ class NextResponse:
             ignore_missing: bool = False,
             load_qualifiers: bool = False) -> OrderedDict[str, PropertyInfo]:
         """Get properties
-
         ignore_defaults: Ignore default values. Set missing values to None
                          if a value does not exist in the current class.
                          ignore_defaults will always be True if ignore_missing

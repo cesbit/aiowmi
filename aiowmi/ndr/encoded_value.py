@@ -12,6 +12,8 @@ class EncodedValue:
     def _get_array(cls, p_type: int, cim_type: int, entry: int, heap: bytes):
 
         num_items, = struct.unpack_from(cls.FMT, heap, offset=entry)
+        num_items &= ~CimType.CIM_ARRAY_FLAG
+
         offset = entry + cls.FMT_SZ
 
         arr = []
@@ -41,9 +43,8 @@ class EncodedValue:
                 # heapData = heapData[msb['EncodingLength']+4:]
         else:
             for item in range(num_items):
-                # TODO: not perfect, see if we can do better
-                assert 0
                 item, = struct.unpack_from(fmt, heap, offset=offset)
+                arr.append(item)
                 offset += size
         return arr
 
