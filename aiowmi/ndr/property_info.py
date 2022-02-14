@@ -6,6 +6,7 @@ from .encoded_value import EncodedValue
 
 if TYPE_CHECKING:
     from ..protocol import Protocol
+    from ..connection import Connection
     from ..ndr.next_response import NextResponse
 
 
@@ -96,6 +97,7 @@ class PropertyInfo:
     async def _get_reference(
             self,
             value: str,
+            conn: 'Connection',
             service: 'Protocol',
             filter_props: Optional[List[str]] = None) -> 'NextResponse':
         from ..query import Query
@@ -112,25 +114,35 @@ class PropertyInfo:
 
         query = Query(f'SELECT {props} FROM {wmiclass} WHERE {constraints}')
 
-        await query.start(service)
+        await query.start(conn, service)
         res = await query.next()
 
         return res
 
     async def get_reference(
             self,
+            conn: 'Connection',
             service: 'Protocol',
             filter_props: Optional[List[str]] = None) -> 'NextResponse':
-        res = await self._get_reference(self.value, service, filter_props)
+        res = await self._get_reference(
+            self.value,
+            conn,
+            service,
+            filter_props)
         return res
 
     async def get_array_references(
             self,
+            conn: 'Connection',
             service: 'Protocol',
             filter_props: Optional[List[str]] = None) -> List['NextResponse']:
         arr = []
         for reference in self.value:
-            res = await self._get_reference(reference, service, filter_props)
+            res = await self._get_reference(
+                reference,
+                conn,
+                service,
+                filter_props)
             arr.append(res)
 
         return arr
