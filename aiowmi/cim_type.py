@@ -1,6 +1,6 @@
 import struct
-import datetime
-from typing import Tuple
+from datetime import datetime, timedelta
+from typing import Tuple, Union
 
 
 class CimType:
@@ -91,7 +91,7 @@ class CimType:
         CIM_TYPE_REAL64: float,
         CIM_TYPE_BOOLEAN: bool,
         CIM_TYPE_STRING: str,
-        CIM_TYPE_DATETIME: datetime.datetime,  # TODO: parse dattime
+        CIM_TYPE_DATETIME: Union[datetime, timedelta],
         CIM_TYPE_REFERENCE: str,
         CIM_TYPE_CHAR16: str,
         CIM_TYPE_OBJECT: object,

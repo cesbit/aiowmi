@@ -73,7 +73,7 @@ async def main():
                 #       property qualifier_set will have the offset in the
                 #       heap where the qualifiers are stored.
                 #
-                props = res.get_properties(ignore_missing=True)
+                props = res.get_properties()
 
                 for name, prop in props.items():
                     print(name, '\n\t', prop.value)

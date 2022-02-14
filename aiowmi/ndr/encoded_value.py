@@ -1,6 +1,7 @@
 import struct
 from ..cim_type import CimType
 from .encoded_string import EncodedString
+from ..dtypes.dt import dt_from_str
 
 
 class EncodedValue:
@@ -86,5 +87,8 @@ class EncodedValue:
             value, _ = EncodedString.from_data(heap, entry)
         except UnicodeDecodeError:
             raise  # TODO: dump heap data for debugging?
+
+        if p_type == CimType.CIM_TYPE_DATETIME:
+            return dt_from_str(value)  # Returns type datetime or timedelta
 
         return value
