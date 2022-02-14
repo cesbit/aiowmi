@@ -79,7 +79,6 @@ class Properties:
             offset += size
 
             if item_value == 0xffffffff or \
-                    item_value == 0 or \
                     (set_defaults and not prop.inherited_default):
                 if ignore_missing:
                     del self.properties[name]

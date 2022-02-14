@@ -20,8 +20,9 @@ async def main():
     password = 'password'
     domain = ''  # optional domain name
 
+    # Query has a default namespace 'root/cimv2'
     queries = (
-        Query('SELECT * FROM Win32_OperatingSystem'),
+        Query('SELECT * FROM Win32_OperatingSystem', namespace='root/cimv2'),
         Query('SELECT * FROM Win32_NetworkAdapter'),
         Query('SELECT * FROM Win32_LoggedOnUser'),
         Query('SELECT * FROM Win32_PnpEntity'),
@@ -43,21 +44,13 @@ async def main():
     try:
         service = await conn.negotiate_ntlm()
 
-        # If different namespaces are used, the function below may be called in
-        # the `for-loop` before each query using the syntax:
-        #
-        #   await conn.login_ntlm(service, namespace='...')
-        #
-        # The default namespace is 'root/cimv2'
-        await conn.login_ntlm(service)
-
         for query in queries:
             print(f"""
 ###############################################################################
 # Start Query: {query.query}
 ###############################################################################
 """)
-            await query.start(service)
+            await query.start(conn, service)
 
             while True:
                 try:

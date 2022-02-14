@@ -60,6 +60,7 @@ class Connection:
         self._loop = asyncio.get_event_loop() if loop is None else loop
         self._protocol: Optional[Protocol] = None
         self._timeout: int = 5
+        self._namespace: Optional[str] = None
 
     async def connect(self, timeout=5):
         conn = self._loop.create_connection(
@@ -225,7 +226,6 @@ class Connection:
             namespace: str = 'root/cimv2'):
         if not namespace.startswith('//'):
             namespace = '//./' + namespace
-
         ntlm_login = NTLMLogin(namespace)
         ntlm_login_pkg = ntlm_login.get_data()
         interface = self._protocol._interface
@@ -245,5 +245,4 @@ class Connection:
 
         proto._interface = ntlm_login_resp
         self._iid = IID_IWbemServices
-
-        return proto
+        self._namespace = namespace

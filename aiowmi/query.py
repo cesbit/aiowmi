@@ -14,18 +14,30 @@ from .exceptions import wbem_exception
 
 if TYPE_CHECKING:
     from .protocol import Protocol
+    from .connection import Connection
 
 
 class Query:
 
     _WQL = WORDSTR('WQL')
 
-    def __init__(self, query: str, language: str = None):
+    def __init__(
+            self,
+            query: str,
+            namespace: str = 'root/cimv2',
+            language: str = None):
+        if not namespace.startswith('//'):
+            namespace = '//./' + namespace
         self.query = query
+        self.namespace = namespace
         self._query = WORDSTR(query)
         self._language = self._WQL if language is None else WORDSTR(language)
 
-    async def start(self, proto: 'Protocol', flags: int = 0):
+    async def start(
+            self,
+            conn: 'Connection',
+            proto: 'Protocol',
+            flags: int = 0):
         """IWbemServices_ExecQuery.
         3.1.4.3.18 IWbemServices::ExecQuery (Opnum 20) [MS-WMI]
 
@@ -54,6 +66,9 @@ class Query:
             If this bit is set, the server MUST return an enumerator
             without reset capability, as specified in section
         """
+        if conn._namespace != self.namespace:
+            await conn.login_ntlm(proto, namespace=self.namespace)
+
         flags = struct.pack('<L', flags)
         pdu_data =\
             ORPCTHIS.get_data(flags=0) +\
