@@ -1,7 +1,22 @@
 # Python WMI
 
-Asynchronous Windows Management Interface connector for the Python language.
+Windows Management Interface connector using asyncio for the Python language.
 
+**Supports:**
+- [x] NTLM Authentication
+- [x] WMI Query (IWbemServices_ExecQuery)
+- [x] Parsing of basic WMI Objects (int/float/str/datetime/array/references)
+
+**Todo:**
+- [ ] Kerberos Authentication
+- [ ] Async WMI Query (IWbemServices_ExecQueryAsync)
+- [ ] Other DCOM/RPC/WMI calls?
+- [ ] Support for WMI Methods?
+- [ ] Improve documentation
+
+## Usage
+
+The example below covers most of what is suppored by this library:
 
 ```python
 
