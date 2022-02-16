@@ -8,8 +8,7 @@ from .auth_verifier_co import RpcAuthVerifierCo
 from .cont_elem import RpcContElem
 from ..uuid import bin_to_uuid_ver
 from .baseresp import RpcBaseResp
-from .const import rpc_status_codes
-from ..exceptions import RpcException
+from ..exceptions import rpc_exception
 
 
 if TYPE_CHECKING:
@@ -28,7 +27,4 @@ class RpcFault(RpcBaseResp):
     def throw(self):
         data, n = self.get_pdu_data_list()[0]
         errcode, = struct.unpack_from(self.FAULT_FMT, data)
-        errmsg = rpc_status_codes.get(errcode)
-        if errmsg is None:
-            errmsg = 'rpc_unknown_error'
-        raise RpcException(errmsg, errcode)
+        raise rpc_exception(errcode)

@@ -10,8 +10,6 @@ from ..uuid import bin_to_uuid_ver
 from .baseresp import RpcBaseResp
 from .const import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from .const import RPC_C_AUTHN_WINNT
-from .const import rpc_status_codes
-from ..const import WBEM_E_LOOKUP
 from ..exceptions import wbem_exception
 
 
