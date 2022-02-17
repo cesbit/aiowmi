@@ -1,3 +1,7 @@
+[![CI](https://github.com/cesbit/aiowmi/workflows/CI/badge.svg)](https://github.com/cesbit/aiowmi/actions)
+[![Release Version](https://img.shields.io/github/release/cesbit/aiowmi)](https://github.com/cesbit/aiowmi/releases)
+
+
 # Python WMI
 
 Windows Management Interface connector using asyncio for the Python language.
