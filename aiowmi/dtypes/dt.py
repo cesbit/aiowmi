@@ -9,6 +9,13 @@ _FMT = '%Y%m%d%H%M%S.%f'
 def dt_from_str(s: str) -> Union[datetime, timedelta]:
     """String to datetime.
 
+    It's crap, but at least citrix may return invalid values like:
+        00010101000000.000000+060
+
+    Therefore, we try and when we fail, this function will return
+     datetime.fromtimestamp(0) or timedelta(0). If you enable debug logging,
+    the library will generate a log line when such an exception occurs.
+
     https://www.dmtf.org/sites/default/files/standards/documents/DSP0004V2.3_final.pdf
     """  # nopep8
     s = s.replace('*', '0')
@@ -24,7 +31,8 @@ def dt_from_str(s: str) -> Union[datetime, timedelta]:
                 microseconds=int(s[15:21])
             )
         except Exception as e:
-            logging.warning(f'invalid interval `{s}` ({e})')
+            logging.debug(
+                f'invalid interval `{s}` ({e}); return timedelta(0)')
             td = timedelta(0)
         return td
 
@@ -49,8 +57,11 @@ def dt_from_str(s: str) -> Union[datetime, timedelta]:
             dt += timedelta(hours=hours, minutes=minutes)
 
     except Exception as e:
-        logging.warning(f'invalid datetime `{s}` ({e})')
+        logging.debug(
+            f'invalid datetime `{s}` ({e}); '
+            'return datetime.fromtimestamp(0)')
         dt = datetime.fromtimestamp(0)
+
     return dt
 
 
