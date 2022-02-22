@@ -24,7 +24,7 @@ def dt_from_str(s: str) -> Union[datetime, timedelta]:
                 microseconds=int(s[15:21])
             )
         except Exception as e:
-            logging.warning(f'invalid inteval value `{s}` ({e})')
+            logging.warning(f'invalid interval `{s}` ({e})')
             td = timedelta(0)
         return td
 
@@ -49,7 +49,7 @@ def dt_from_str(s: str) -> Union[datetime, timedelta]:
             dt += timedelta(hours=hours, minutes=minutes)
 
     except Exception as e:
-        logging.warning(f'invalid datetime value `{s}` ({e})')
+        logging.warning(f'invalid datetime `{s}` ({e})')
         dt = datetime.fromtimestamp(0)
     return dt
 
