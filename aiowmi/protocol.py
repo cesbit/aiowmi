@@ -22,6 +22,7 @@ class Protocol(asyncio.Protocol):
         self._fut = None
         self._size = None
         self._buf = None
+        self._tmp = b''
         self._interface: NdrInterface = None
         self._auth_type: int = None
         self._auth_level: int = None
@@ -62,8 +63,17 @@ class Protocol(asyncio.Protocol):
         within diffrent package fragments.
         """
         if self._buf is None:
+            data = self._tmp + data
+
+            if len(data) < RpcCommon.COMMON_SIZE:
+                # We do not have a complete header, thus no call_id and size.
+                # Use a temporary buffer until we have a complete header.
+                self._tmp = data
+                return
+
             size, _, call_id, = struct.unpack_from('<HHL', data, offset=8)
             self._buf = Buf(size, call_id)
+            self._tmp = b''
 
         more = self._buf.append(data)
 
