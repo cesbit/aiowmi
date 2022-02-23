@@ -19,19 +19,19 @@ class Protocol(asyncio.Protocol):
 
     def __init__(self, loop: Optional[asyncio.AbstractEventLoop] = None):
         self._transport = None
-        self._fut = None
-        self._size = None
         self._buf = None
         self._tmp = b''
+        self._requests = {}
+        self._dcom = Dcom()
+
+        # The properties below will be set by connection.py
         self._interface: NdrInterface = None
         self._auth_type: int = None
         self._auth_level: int = None
         self._flags = None
         self._client_seal: Optional[Callable] = None
         self._server_seal: Optional[Callable] = None
-        self._dcom = Dcom()
         self._iid = None
-        self._requests = {}
 
     @staticmethod
     def get_call_id(data: bytes):
