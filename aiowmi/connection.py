@@ -203,14 +203,28 @@ class Connection:
 
         host, port = interface.get_binding()
 
-        conn = self._loop.create_connection(
-            lambda: Protocol(loop=self._loop),
-            host=host,
-            port=port)
+        try:
+            conn = self._loop.create_connection(
+                lambda: Protocol(loop=self._loop),
+                host=self._host,
+                port=port)
 
-        _, proto = await asyncio.wait_for(
-            conn,
-            timeout=self._timeout)
+            _, proto = await asyncio.wait_for(
+                conn,
+                timeout=self._timeout)
+        except Exception as e:
+            logging.warning(
+                f'failed to connect to {self._host} ({port}); '
+                f'fallback to {host} ({port})...')
+
+            conn = self._loop.create_connection(
+                lambda: Protocol(loop=self._loop),
+                host=host,
+                port=port)
+
+            _, proto = await asyncio.wait_for(
+                conn,
+                timeout=self._timeout)
 
         proto._auth_level = max(
             interface.scm_reply_info_data.authn_hint,
