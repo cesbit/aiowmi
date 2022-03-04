@@ -1,13 +1,13 @@
+import logging
 import struct
-from .orpcthat import ORPCTHAT
-from .objref_custom import ObjRefCustom
-from .activation_blob import ActivationBlob
-from .scm_reply_info_data import ScmReplyInfoData
-from .props_out_info import PropsOutInfo
-from ..tools import is_fqdn
-from .interface import NdrInterface
 from ..exceptions import NoBindingException
-
+from ..tools import is_fqdn
+from .activation_blob import ActivationBlob
+from .interface import NdrInterface
+from .objref_custom import ObjRefCustom
+from .orpcthat import ORPCTHAT
+from .props_out_info import PropsOutInfo
+from .scm_reply_info_data import ScmReplyInfoData
 
 """
 ORPCTHAT
@@ -75,6 +75,7 @@ class RemoteCreateInstanceResponse(NdrInterface):
         if self._binding is None:
             raise NoBindingException('no network binding has been found')
 
+        logging.debug(f'selected binding: {self._binding}')
         return self._binding
 
     def get_ipid(self) -> int:
