@@ -150,7 +150,7 @@ class Query:
 
         interface = GetSmartEnumResponse(message)
 
-        self._class_part = None
+        self._class_parts = {}
         self._interface = interface
         self.next = self._next_smart
 
@@ -172,11 +172,7 @@ class Query:
             await self._proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
 
         message = rpc_response.get_message(self._proto)
-
-        next_response = SmartResponse(message, self._class_part)
-        self._class_part = next_response.get_class_part()
-
-        return next_response
+        return SmartResponse(message, self._class_parts)
 
     async def _next_slow(self, timeout: int = WBEM_INFINITE) -> NextResponse:
         """IEnumWbemClassObject_Next.
@@ -204,9 +200,7 @@ class Query:
             await self._proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
 
         message = rpc_response.get_message(self._proto)
-        next_response = NextBigResponse(message)
-
-        return next_response
+        return NextBigResponse(message)
 
     async def _start_async(self, proto: 'Protocol', flags: int = 0):
         """IWbemServices_ExecQuery.

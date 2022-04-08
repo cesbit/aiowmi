@@ -1,5 +1,5 @@
 import struct
-from typing import OrderedDict, Optional
+from typing import OrderedDict, Dict
 from .class_part import ClassPart
 from .next_response import NextResponse
 from .object_block import ObjectBlock
@@ -17,7 +17,7 @@ class SmartResponse(NextResponse):
     FMT2_32 = '<LLLBBLLLLL'
     FMT2_32_SZ = struct.calcsize(FMT2_32)
 
-    def __init__(self, data: bytes, class_part: Optional[ClassPart] = None):
+    def __init__(self, data: bytes, class_parts: Dict[str, ClassPart]):
         self.orpcthat, offset = ORPCTHAT.from_data(data, offset=0)
         (
             pu_returned,
@@ -49,7 +49,7 @@ class SmartResponse(NextResponse):
 
         # Buffer contains a WBEM_DATAPACKET_OBJECT, 2.2.14.1 MS-WMI
         self._obj_block, offset = \
-            WbemDatapacketObject.from_data(data, offset, class_part)
+            WbemDatapacketObject.from_data(data, offset, class_parts)
 
     def _get_object_block(self) -> ObjectBlock:
         return self._obj_block
