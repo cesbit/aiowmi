@@ -206,9 +206,6 @@ class Query:
         message = rpc_response.get_message(self._proto)
         next_response = NextBigResponse(message)
 
-        if next_response.error_code:
-            raise wbem_exception(next_response.error_code)
-
         return next_response
 
     async def _start_async(self, proto: 'Protocol', flags: int = 0):
