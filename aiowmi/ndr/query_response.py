@@ -1,24 +1,7 @@
 import struct
 from .orpcthat import ORPCTHAT
 from .objref_standard import ObjRefStandard
-from .activation_blob import ActivationBlob
-from .scm_reply_info_data import ScmReplyInfoData
-from .props_out_info import PropsOutInfo
-from ..tools import is_fqdn
 from .interface import NdrInterface
-
-"""
-IWbemLevel1Login_NTLMLoginResponse
-
-ORPCTHAT
-flags
-\x00\x00\x00\x00
-ext
-\x00\x00\x00\x00
-
-
-\x00\x00\x02\x00\xb4\x00\x00\x00\xb4\x00\x00\x00MEOW\x01\x00\x00\x00...
-"""
 
 
 class QueryResponse(NdrInterface):

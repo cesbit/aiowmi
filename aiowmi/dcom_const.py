@@ -31,8 +31,23 @@ IID_IRemoteSCMActivator =\
 IID_IActivationPropertiesIn =\
     uuid_ver_to_bin('000001A2-0000-0000-C000-000000000046', '0.0')
 
+IID_IRemUnknown_str = '00000131-0000-0000-C000-000000000046'
+
+IID_IRemUnknown =\
+    uuid_ver_to_bin(IID_IRemUnknown_str, '0.0')
+
 IID_IRemUnknown2 =\
     uuid_ver_to_bin('00000143-0000-0000-C000-000000000046', '0.0')
+
+IID_IWbemFetchSmartEnum_str = '1C1C45EE-4395-11d2-B60B-00104B703EFD'
+
+IID_IWbemFetchSmartEnum_bin = uuid_to_bin(IID_IWbemFetchSmartEnum_str)
+
+IID_IWbemFetchSmartEnum =\
+    uuid_ver_to_bin(IID_IWbemFetchSmartEnum_str, '0.0')
+
+IID_IWbemWCOSmartEnum =\
+    uuid_ver_to_bin('423EC01E-2E35-11d2-B604-00104B703EFD', '0.0')
 
 NDR_TransferSyntaxIdentifier =\
     uuid_ver_to_bin('8a885d04-1ceb-11c9-9fe8-08002b104860', '2.0')
@@ -77,8 +92,6 @@ FLAGS_OBJREF_EXTENDED = 0x00000008
 #    uuidtup_to_bin(('99fcfec4-5260-101b-bbcb-00aa0021347a','0.0'))
 # IID_IRemoteSCMActivator       = \
 #    uuidtup_to_bin(('000001A0-0000-0000-C000-000000000046','0.0'))
-# IID_IRemUnknown               = \
-#    uuidtup_to_bin(('00000131-0000-0000-C000-000000000046','0.0'))
 # IID_IUnknown                  = \
 #    uuidtup_to_bin(('00000000-0000-0000-C000-000000000046','0.0'))
 # IID_IClassFactory             = \

@@ -42,6 +42,11 @@ class ClassPart:
         # QualifierSet
         self.qualifier_set, offset = QualifierSet.from_data(data, offset)
 
+        '''
+        \x01\x00\x00\x00r\x00\x00\x00x\x00\x00\x00\x03\x00\x00\x00\x00\xaa\x00\x00\x80\x00Win32_OperatingSystem\x00\x00Singleton\x00\x00CIMWin32\x00\x00SupportsUpdate\x00\x00Locale\x00\x00UUID\x00\x00{8502C4DE-
+
+        '''
+
         self.properties, offset = Properties.from_data(data, offset)
 
         start = offset

@@ -1,10 +1,10 @@
 import struct
 from collections import OrderedDict
 from typing import Tuple
+from ..cim_type import CimType
 from ..const import DICTIONARY_REFERENCE
 from .encoded_string import EncodedString
 from .property_info import PropertyInfo
-from ..cim_type import CimType
 
 
 class Properties:
@@ -24,6 +24,7 @@ class Properties:
         self = cls()
 
         self.props = []
+        self._qualifiers_done = False
 
         (
             property_count,
@@ -105,5 +106,8 @@ class Properties:
             prop.inherited_default = bool(nd_entry & 2)
 
     def set_qualifiers(self, heap: bytes):
+        if self._qualifiers_done:
+            return
+        self._qualifiers_done = True
         for prop in self.properties.values():
             prop._set_qualifiers(heap)

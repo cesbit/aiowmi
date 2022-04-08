@@ -1,15 +1,24 @@
 import struct
 from typing import TYPE_CHECKING
+from .const import WBEM_FLAG_FORWARD_ONLY
+from .const import WBEM_FLAG_RETURN_IMMEDIATELY
 from .const import WBEM_INFINITE
+from .dcom_const import IID_IRemUnknown_str
+from .dcom_const import IID_IWbemFetchSmartEnum_bin
 from .dtypes.wordstr import WORDSTR
+from .exceptions import wbem_exception
+from .ndr.get_smart_enum_response import GetSmartEnumResponse
 from .ndr.next_response import NextResponse
 from .ndr.orpcthis import ORPCTHIS
 from .ndr.query_response import QueryResponse
+from .ndr.smart_response import SmartResponse
+from .ndr.next_big_response import NextBigResponse
+from .ndr.rem_query_interface_response import RemQueryInterfaceResponse
 from .ntlm.const import NTLM_AUTH_PKT_INTEGRITY
 from .rpc.request import RpcRequest
 from .rpc.response import RpcResponse
 from .tools import get_null, gen_referent_id
-from .exceptions import wbem_exception
+from .uuid import uuid_to_bin
 
 
 if TYPE_CHECKING:
@@ -37,7 +46,8 @@ class Query:
             self,
             conn: 'Connection',
             proto: 'Protocol',
-            flags: int = 0):
+            flags: int = (
+                WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY)):
         """IWbemServices_ExecQuery.
         3.1.4.3.18 IWbemServices::ExecQuery (Opnum 20) [MS-WMI]
 
@@ -68,10 +78,9 @@ class Query:
         """
         if conn._namespace != self.namespace:
             await conn.login_ntlm(proto, namespace=self.namespace)
-
         flags = struct.pack('<L', flags)
         pdu_data =\
-            ORPCTHIS.get_data(flags=0) +\
+            ORPCTHIS.get_data() +\
             self._language.get_data() +\
             self._query.get_data() +\
             flags +\
@@ -87,11 +96,89 @@ class Query:
 
         message = rpc_response.get_message(proto)
 
+        # this works, but do we need a rem release or not?
+        # ...we did not ask for one
+        # await proto._interface.rem_release(proto)
+
         interface = QueryResponse(message)
         self._interface = interface
         self._proto = proto
+        self.next = self._next_slow
 
-    async def next(self, timeout: int = WBEM_INFINITE) -> NextResponse:
+    async def optimize(self):
+        """RemQueryInterface."""
+        ipid = uuid_to_bin(self._interface.get_ipid())
+
+        c_refs, c_iids = 1, 1
+
+        pdu_data =\
+            ORPCTHIS.get_data(flags=0) +\
+            ipid +\
+            struct.pack('<LH', c_refs, c_iids) +\
+            b'\xce\xce' +\
+            struct.pack('<L', c_iids) +\
+            IID_IWbemFetchSmartEnum_bin
+
+        iremunknown = \
+            self._proto._interface.scm_reply_info_data.ipid_rem_unknown
+
+        request = RpcRequest(op_num=3, uuid_str=iremunknown)
+        request.set_pdu_data(pdu_data)
+
+        request_pkg = request.sign_data(self._proto)
+
+        rpc_response: RpcResponse = \
+            await self._proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
+
+        message = rpc_response.get_message(self._proto)
+
+        interface = RemQueryInterfaceResponse(message)
+
+        pdu_data = ORPCTHIS.get_data(flags=0) + ipid
+        request = RpcRequest(op_num=3, uuid_str=interface.get_ipid())
+        request.set_pdu_data(pdu_data)
+
+        request_pkg = request.sign_data(self._proto)
+
+        rpc_response: RpcResponse = \
+            await self._proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
+
+        message = rpc_response.get_message(self._proto)
+
+        # we asked for one public inferface, so we need to release this one
+        await interface.rem_release(self._proto)
+
+        interface = GetSmartEnumResponse(message)
+
+        self._class_part = None
+        self._interface = interface
+        self.next = self._next_smart
+
+    async def _next_smart(self, timeout: int = WBEM_INFINITE) -> NextResponse:
+        """3.1.4.7.1 IWbemWCOSmartEnum::Next (Opnum 3)"""
+        ucount = 1  # set the ucount fixed to one (1)
+        param = struct.pack('<LL', timeout, ucount)
+        pdu_data =\
+            ORPCTHIS.get_data(flags=0) +\
+            self._interface.proxy_guid +\
+            param
+
+        request = RpcRequest(op_num=3, uuid_str=self._interface.get_ipid())
+        request.set_pdu_data(pdu_data)
+
+        request_pkg = request.sign_data(self._proto)
+
+        rpc_response: RpcResponse = \
+            await self._proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
+
+        message = rpc_response.get_message(self._proto)
+
+        next_response = SmartResponse(message, self._class_part)
+        self._class_part = next_response.get_class_part()
+
+        return next_response
+
+    async def _next_slow(self, timeout: int = WBEM_INFINITE) -> NextResponse:
         """IEnumWbemClassObject_Next.
 
         lTimeout: MUST be the maximum amount of time, in milliseconds, that the
@@ -117,7 +204,7 @@ class Query:
             await self._proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
 
         message = rpc_response.get_message(self._proto)
-        next_response = NextResponse(message)
+        next_response = NextBigResponse(message)
 
         if next_response.error_code:
             raise wbem_exception(next_response.error_code)

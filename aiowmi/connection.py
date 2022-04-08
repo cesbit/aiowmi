@@ -258,5 +258,6 @@ class Connection:
         ntlm_login_resp = NTLMLoginResponse(message)
 
         proto._interface = ntlm_login_resp
+        proto._interface.scm_reply_info_data = interface.scm_reply_info_data
         self._iid = IID_IWbemServices
         self._namespace = namespace

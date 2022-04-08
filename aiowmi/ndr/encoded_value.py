@@ -34,6 +34,12 @@ class EncodedValue:
             offset += size * num_items
             for item in range(num_items):
                 assert 0
+
+                (
+                    encoding_len,
+                ) = struct.unpack_from(cls.FMT, data, offset=offset)
+                offset += cls.FMT_SZ
+
                 item, offset = ObjectBlock.from_data(heap, offset)
                 # TODO: test parsing
                 # msb = METHOD_SIGNATURE_BLOCK(heapData)

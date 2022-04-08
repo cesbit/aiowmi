@@ -30,6 +30,7 @@ import time
 from aiowmi.connection import Connection
 from aiowmi.query import Query
 from aiowmi.exceptions import WbemStopIteration
+from aiowmi.exceptions import ServerNotOptimized
 
 
 async def main():
@@ -70,6 +71,10 @@ async def main():
 ###############################################################################
 """)
             await query.start(conn, service)
+
+            # Try to use smart queries to reduce the network traffic size
+            # If the server does not support optimization,
+            # the ServerNotOptimized exception is raised.
 
             while True:
                 try:

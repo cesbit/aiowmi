@@ -1,6 +1,5 @@
 from typing import Tuple
 from itertools import chain
-from ..tools import pad
 
 
 class EncodedString:

@@ -1,5 +1,5 @@
 import struct
-from typing import Tuple
+from typing import Tuple, Optional
 from .encoded_string import EncodedString
 from .class_part import ClassPart
 from .heap import Heap
@@ -15,12 +15,13 @@ class ObjectBlock:
     INSTANCE_SZ = struct.calcsize(INSTANCE)
 
     @classmethod
-    def from_data(cls, data: bytes, offset: int) -> Tuple['ObjectBlock', int]:
+    def from_data(
+            cls,
+            data: bytes,
+            offset: int,
+            class_part: Optional[ClassPart] = None
+            ) -> Tuple['ObjectBlock', int]:
         self = cls()
-        (
-            encoding_len,
-        ) = struct.unpack_from(cls.FMT, data, offset=offset)
-        offset += cls.FMT_SZ
 
         # Start Object Block
         self.flags = data[offset]
@@ -41,14 +42,29 @@ class ObjectBlock:
             assert 0
 
         else:
+            if self.flags & 0x10:
+                # If this flag is set, the object is a prototype of the result
+                # object for the query,
+                # as specified in [MS-WMI] (section 2.2.4.1).
+                # This flag MUST be used only in combination with the 0x1 flag.
+                # This flag MUST NOT be used when returning IWbemClassObject,
+                # which is not represented as a Prototype Result Object
+                pass
+
             # Instance Type
-            self._instance_type(data, offset)
+            offset = self._instance_type(data, offset, class_part)
 
         return self, offset
 
-    def _instance_type(self, data, offset):
-        # ClassPart
-        self.class_part, offset = ClassPart.from_data(data, offset)
+    def _instance_type(
+            self,
+            data: bytes,
+            offset: int,
+            class_part: Optional[ClassPart] = None):
+        if class_part:
+            self.class_part = class_part
+        else:
+            self.class_part, offset = ClassPart.from_data(data, offset)
 
         # Instance
         (
@@ -79,3 +95,5 @@ class ObjectBlock:
         self.instance_heap, offset = Heap.from_data(data, offset)
 
         self.instance_qualifier_set.load(self.instance_heap)
+
+        return offset

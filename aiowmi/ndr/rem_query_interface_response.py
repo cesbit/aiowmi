@@ -1,30 +1,31 @@
 import struct
-from .orpcthat import ORPCTHAT
-from .objref_standard import ObjRefStandard
+from ..exceptions import ServerNotOptimized
 from .interface import NdrInterface
+from .objref_std import ObjRefStd
+from .orpcthat import ORPCTHAT
 
 
-class NTLMLoginResponse(NdrInterface):
-
-    FMT1_32 = '<LLL'
-    FMT1_64 = '<QLL'
+class RemQueryInterfaceResponse(NdrInterface):
+    FMT1_32 = '<LlLL'
+    FMT1_64 = '<QlLL'
 
     FMT1_32_SZ = struct.calcsize(FMT1_32)
 
     def __init__(self, data: bytes):
         self.orpcthat, offset = ORPCTHAT.from_data(data, offset=0)
 
-        # activation_blobs
-
         (
             self.referent_id,
-            _,
-            size
+            n_size,
+            h_result,
+            pad,
         ) = struct.unpack_from(self.FMT1_32, data, offset)
         offset += self.FMT1_32_SZ
 
-        self.objref = ObjRefStandard.from_data(data, offset, size)
-        offset += size
+        if h_result:
+            raise ServerNotOptimized('Server is not optimized')
+
+        self.objref, offset = ObjRefStd.from_data(data, offset)
 
         self.error_code, = struct.unpack_from('<L', data, offset)
         assert self.error_code == 0, f'error code: {self.error_code}'

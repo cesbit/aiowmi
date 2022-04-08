@@ -103,7 +103,7 @@ class RpcResponse(RpcBaseResp):
             # Second, WBEM_S "errors" are not relevant and can be distinguished
             # with the 0x80000000 bit.
             errcode, = struct.unpack('<L', message[-4:])
-            if errcode & 0x80000000:
+            if not errcode & 0x80000000:
                 raise wbem_exception(errcode)
 
         return b''.join(messages)

@@ -1,43 +1,11 @@
-import struct
+from abc import ABC, abstractmethod
 from typing import OrderedDict
-from .orpcthat import ORPCTHAT
-from .objref_standard import ObjRefStandard
-from .activation_blob import ActivationBlob
-from .scm_reply_info_data import ScmReplyInfoData
-from .props_out_info import PropsOutInfo
-from ..tools import is_fqdn
-from .varying_array import VaryingArray
-from .encoding_unit import EncodingUnit
+from .object_block import ObjectBlock
+from .class_part import ClassPart
 from .property_info import PropertyInfo
 
 
-class NextResponse:
-
-    _FMT1_32 = '<LLL'
-    _FMT1_64 = '<QQQ'
-
-    _FMT1_32_SZ = struct.calcsize(_FMT1_32)
-    _FMT1_64_SZ = struct.calcsize(_FMT1_64)
-
-    def __init__(self, data: bytes):
-        self.orpcthat, offset = ORPCTHAT.from_data(data, offset=0)
-        (
-            ncount,
-            noffset,
-            ncount,
-        ) = struct.unpack_from(self._FMT1_32, data, offset)
-        offset += self._FMT1_32_SZ
-        self._ap_objects = []
-
-        for _ in range(ncount):
-            va, offset = VaryingArray.from_data(data, offset)
-            encoding_unit = EncodingUnit(va.objref.object_data)
-            self._ap_objects.append(encoding_unit)
-
-        (
-            self.pu_returned,
-            self.error_code,
-        ) = struct.unpack_from('<LL', data, offset)
+class NextResponse(ABC):
 
     def get_properties(
             self,
@@ -57,25 +25,30 @@ class NextResponse:
         """
 
         items = []
-        assert len(self._ap_objects) == 1
-        for encoding_unit in self._ap_objects:
-            object_block = encoding_unit.object_block
-            class_part = object_block.class_part
-            properties = class_part.properties
+        object_block = self._get_object_block()
+        class_part = object_block.class_part
+        properties = class_part.properties
 
-            if not ignore_defaults:
-                properties.set_prop_defaults(class_part.nd_value_table)
-                properties.set_prop_values(
-                    class_part.class_heap,
-                    class_part.nd_value_table,
-                    set_defaults=True)
-
+        if not ignore_defaults:
+            properties.set_prop_defaults(class_part.nd_value_table)
             properties.set_prop_values(
-                object_block.instance_heap,
-                object_block.nd_value_table,
-                ignore_missing=ignore_missing)
+                class_part.class_heap,
+                class_part.nd_value_table,
+                set_defaults=True)
 
-            if load_qualifiers:
-                properties.set_qualifiers(class_part.class_heap)
+        properties.set_prop_values(
+            object_block.instance_heap,
+            object_block.nd_value_table,
+            ignore_missing=ignore_missing)
 
-            return properties.properties
+        if load_qualifiers:
+            properties.set_qualifiers(class_part.class_heap)
+
+        return properties.properties
+
+    @abstractmethod
+    def _get_object_block(self) -> ObjectBlock:
+        ...
+
+    def get_class_part(self) -> ClassPart:
+        return self._get_object_block().class_part

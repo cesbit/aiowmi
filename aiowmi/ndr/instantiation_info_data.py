@@ -1,34 +1,3 @@
-"""
-
-Common: (8)
-\x01\x10\x08\x00\xcc\xcc\xcc\xcc
-Private: (8)
-D\x00\x00\x00\xcc\xcc\xcc\xcc
-CalssId: (16)
-^\xf0\xc3\x8bk\xd8\xd0\x11\xa0u\x00\xc0O\xb6\x88
-
-ClassCtx: (4)
-\x00\x00\x00\x00
-actvflags: (4)
-\x00\x00\x00\x00
-fIsSurrogate: (4)
-\x00\x00\x00\x00
-c_iid (4)
-\x01\x00\x00\x00
-'instFlag' (4)
-\x00\x00\x00\x00
-'ReferentID' (4)
-....
-'thisSize' (4)
-....
-'clientCOMVersion' (4)
-\x05\x00\x07\x00
-
-Referents: (pIDD 4 + 16) (20)
-\x01\x00\x00\x00\x18\xad\t\xf3j\xd8\xd0\x11\xa0u\x00\xc0O\xb6\x88 '
-
-"""
-
 import struct
 from .com_version import COM_VERSION_MAJOR, COM_VERSION_MINOR
 from ..tools import pad8, gen_referent_id

@@ -5,6 +5,7 @@ from ..cim_type import CimType
 from .encoded_value import EncodedValue
 from ..exceptions import WbemFalse
 
+
 if TYPE_CHECKING:
     from ..protocol import Protocol
     from ..connection import Connection

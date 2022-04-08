@@ -9,17 +9,6 @@ from .orpcthat import ORPCTHAT
 from .props_out_info import PropsOutInfo
 from .scm_reply_info_data import ScmReplyInfoData
 
-"""
-ORPCTHAT
-flags
-\x01\x00\x00\x00
-ext
-\x00\x00\x00\x00
-
-
-\x00\x00\x02\x00`\x03\x00\x00`\x03\x00\x00MEOW\x04\x00\x00\x00\xa3\x01....
-"""
-
 
 class RemoteCreateInstanceResponse(NdrInterface):
 

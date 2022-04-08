@@ -2,9 +2,12 @@ import struct
 from .orpcthat import ORPCTHAT
 from .objref_standard import ObjRefStandard
 from .interface import NdrInterface
+from .objref import ObjRef
+from ..uuid import uuid_to_bin
+from uuid import uuid4
 
 
-class NTLMLoginResponse(NdrInterface):
+class GetSmartEnumResponse(NdrInterface):
 
     FMT1_32 = '<LLL'
     FMT1_64 = '<QLL'
@@ -15,18 +18,24 @@ class NTLMLoginResponse(NdrInterface):
         self.orpcthat, offset = ORPCTHAT.from_data(data, offset=0)
 
         # activation_blobs
-
         (
             self.referent_id,
-            _,
-            size
-        ) = struct.unpack_from(self.FMT1_32, data, offset)
+            ul_cnt_data_mi,
+            ul_cnt_data_ma,
+        ) = struct.unpack_from(self.FMT1_32, data, offset=offset)
         offset += self.FMT1_32_SZ
 
-        self.objref = ObjRefStandard.from_data(data, offset, size)
-        offset += size
+        self.objref: ObjRefStandard =\
+            ObjRef.from_data(data, offset, ul_cnt_data_ma)
 
+        offset += ul_cnt_data_ma
         self.error_code, = struct.unpack_from('<L', data, offset)
+
+        # generate a random proxy guid
+        self.proxy_guid = uuid_to_bin(str(uuid4()))
+        self.proxy_guid =\
+            b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff'
+
         assert self.error_code == 0, f'error code: {self.error_code}'
 
     def get_ipid(self):

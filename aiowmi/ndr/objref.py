@@ -5,7 +5,9 @@ See: 2.2.18.6, OBJREF_CUSTOM
 import struct
 from typing import Union
 from ..uuid import bin_to_str, CLSID_SZ
-from .const import FLAGS_OBJREF_STANDARD, FLAGS_OBJREF_CUSTOM
+from .const import FLAGS_OBJREF_CUSTOM
+from .const import FLAGS_OBJREF_EXTENDED
+from .const import FLAGS_OBJREF_STANDARD
 
 
 class ObjRef:
@@ -47,5 +49,9 @@ class ObjRef:
         if flags & FLAGS_OBJREF_CUSTOM:
             from .objref_custom import ObjRefCustom
             return ObjRefCustom.from_data(data, offset, size)
+
+        if flags & FLAGS_OBJREF_EXTENDED:
+            from .objref_extended import ObjRefExtended
+            return ObjRefExtended.from_data(data, offset, size)
 
         assert 0, f'unsupported ObjRef (flags: {flags})'

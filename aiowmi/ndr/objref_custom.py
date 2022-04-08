@@ -7,7 +7,6 @@ from ..dcom_const import CLSID_ActivationPropertiesIn
 from ..dcom_const import IID_IActivationPropertiesIn
 from ..dcom_const import FLAGS_OBJREF_CUSTOM
 from ..uuid import uuid_part, bin_to_str, CLSID_SZ
-from .const import FLAGS_OBJREF_STANDARD
 from .objref import ObjRef
 
 

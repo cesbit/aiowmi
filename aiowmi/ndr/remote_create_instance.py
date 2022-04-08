@@ -1,68 +1,13 @@
-"""
-ORPCTHIS
-
-version
-\x05\x00\x07\x00
-flags
-\x01\x00\x00\x00
-reserverd
-\x00\x00\x00\x00
-cid
-\xcf=\xd6\x19\xff\xf5\xfb\x11\xc5\xbc\x85[\xec*\xc9$
-extensions (4 / 8)
-\x00\x00\x00\x00
-
-p_unk_outer
-\x00\x00\x00\x00
-
-referent_id (4) random
-\xc2h\x00\x00
-
-ulCntData (416)
-\xa0\x01\x00\x00
-
-again??? (4)
-\xa0\x01\x00\x00
-
-OBJ REF
-
-signature (4)
-MEOW
-
-flags (4)
-\x04\x00\x00\x00
-
-OBJ REF CUSTOM
-
-iid (16)
-\xa2\x01\x00\x00\x00\x00\x00\x00\xc0\x00\x00\x00\x00\x00\x00F
-
-clsid (16)
-8\x03\x00\x00\x00\x00\x00\x00\xc0\x00\x00\x00\x00\x00\x00F
-
-extensions (4)
-\x00\x00\x00\x00
-
-object_ref_size (4) (376 = below + 8)
-x\x01\x00\x00
-
-ActivationBLOB
-
-h\x01\x00\x00\x00...
-
-padding
-\xfa\xfa\xfa\xfa\xfa\xfa'
-"""
 import struct
+from ..tools import gen_referent_id
 from .activation_blob import ActivationBlob
+from .activation_context_info_data import ActivationContextInfoData
 from .activation_context_info_data import ActivationContextInfoData
 from .instantiation_info_data import InstantiationInfoData
 from .location_info_data import LocationInfoData
-from .activation_context_info_data import ActivationContextInfoData
-from .scm_request_info_data import ScmRequestInfoData
-from .orpcthis import ORPCTHIS
-from ..tools import gen_referent_id
 from .objref_custom import ObjRefCustom
+from .orpcthis import ORPCTHIS
+from .scm_request_info_data import ScmRequestInfoData
 
 
 class RemoteCreateInstance:

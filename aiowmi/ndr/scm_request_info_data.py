@@ -1,32 +1,3 @@
-"""
-
-\x01\x10\x08\x00\xcc\xcc\xcc\xcc
-\x1a\x00\x00\x00\xcc\xcc\xcc\xcc
-
-dw_reserved (4)
-\x00\x00\x00\x00
-
-ReferentId (4)
-<\x15\x00\x00
-
-ClientImpLevel (4)
-\x00\x00\x00\x00
-
-cRequestedProtseqs (2)
-\x01\x00
-
-padding (2)
-\xaa\xaa
-
-ReferentId (4)
-\x1cR\x00\x00
-
-Referent Count (4)
-\x01\x00\x00\x00
-
-Referent (2)
-\x07\x00'
-"""
 import struct
 import random
 from .common import NdrCommon

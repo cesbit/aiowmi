@@ -4,8 +4,6 @@ See MS-DCOM, 2.2.13.4
 """
 import struct
 from typing import Tuple
-from ..tools import gen_cid
-from .com_version import COM_VERSION
 
 
 class ORPCTHAT:

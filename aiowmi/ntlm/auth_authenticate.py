@@ -2,14 +2,11 @@ import struct
 from ..tools import get_rangom_bytes, ntowf_v2, hmac_md5
 from .av_pairs import AvPairs
 from .version import NTLMVersion
-from .const import (
-    NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED,
-    NTLMSSP_NEGOTIATE_VERSION
-)
+from .const import NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED
+from .const import NTLMSSP_NEGOTIATE_VERSION
+
 
 # 2.2.1.3 AUTHENTICATE_MESSAGE
-
-
 class NTLMAuthAuthenticate:
     """Message from client to server."""
 
