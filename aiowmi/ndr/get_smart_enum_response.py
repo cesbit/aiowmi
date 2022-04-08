@@ -33,8 +33,6 @@ class GetSmartEnumResponse(NdrInterface):
 
         # generate a random proxy guid
         self.proxy_guid = uuid_to_bin(str(uuid4()))
-        self.proxy_guid =\
-            b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff'
 
         assert self.error_code == 0, f'error code: {self.error_code}'
 
