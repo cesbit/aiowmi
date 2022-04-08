@@ -101,9 +101,8 @@ class RpcResponse(RpcBaseResp):
             # First, rpc status codes should also have an rpc fault package
             # and are already handled.
             # Second, WBEM_S "errors" are not relevant and can be distinguished
-            # with the 0x80000000 bit.
+            # with the 0x80000000 bit, although, we do raise them
             errcode, = struct.unpack('<L', message[-4:])
-            if not errcode & 0x80000000:
-                raise wbem_exception(errcode)
+            raise wbem_exception(errcode)
 
         return b''.join(messages)
