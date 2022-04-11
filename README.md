@@ -87,7 +87,6 @@ async def main():
                 except WbemStopIteration:
                     break
 
-
                 # Function `get_properties(..)` accepts a few keyword arguments:
                 #
                 # ignore_defaults:
