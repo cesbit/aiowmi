@@ -10,6 +10,7 @@ Windows Management Interface connector using asyncio for the Python language.
 - [x] NTLM Authentication
 - [x] WMI Query (IWbemServices_ExecQuery)
 - [x] Parsing of basic WMI Objects (int/float/str/datetime/array/references)
+- [x] Optimized queries using the SmartEnum implementation
 
 **Todo:**
 - [ ] Kerberos Authentication
