@@ -79,7 +79,7 @@ async def main():
             try:
                 await query.optimize()
             except ServerNotOptimized:
-                pass
+                pass  # We are not able to use optimized queries
 
             while True:
                 try:
