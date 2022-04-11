@@ -75,12 +75,17 @@ async def main():
             # Try to use smart queries to reduce the network traffic size
             # If the server does not support optimization,
             # the ServerNotOptimized exception is raised.
+            try:
+                await query.optimize()
+            except ServerNotOptimized:
+                pass
 
             while True:
                 try:
                     res = await query.next()
                 except WbemStopIteration:
                     break
+
 
                 # Function `get_properties(..)` accepts a few keyword arguments:
                 #
