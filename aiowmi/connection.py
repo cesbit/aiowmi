@@ -62,7 +62,7 @@ class Connection:
         self._timeout: int = 5
         self._namespace: Optional[str] = None
 
-    async def connect(self, timeout=5):
+    async def connect(self, timeout: int = 5):
         conn = self._loop.create_connection(
             lambda: Protocol(loop=self._loop),
             host=self._host,
@@ -78,8 +78,8 @@ class Connection:
             self._protocol.close()
         self._protocol = None
 
-    def is_connected(self):
-        return self._protocol
+    def is_connected(self) -> bool:
+        return bool(self._protocol)
 
     def connection_info(self) -> str:
         if not self.is_connected():
