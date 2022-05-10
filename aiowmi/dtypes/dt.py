@@ -3,7 +3,7 @@ from typing import Union
 from datetime import datetime, timedelta
 
 
-_FMT = '%Y%m%d%H%M%S.%f'
+_FMT = '%Y%m%d%H%M%S.%f%z'
 
 
 def dt_from_str(s: str) -> Union[datetime, timedelta]:
@@ -49,12 +49,7 @@ def dt_from_str(s: str) -> Union[datetime, timedelta]:
             if s[t:e] == '00':
                 s = s[:t] + '01' + s[e:]
 
-        dt = datetime.strptime(s[:21], _FMT)
-        if s[-4] == '+':
-            dt -= timedelta(hours=hours, minutes=minutes)
-        else:
-            assert s[-4] == '-'
-            dt += timedelta(hours=hours, minutes=minutes)
+        dt = datetime.strptime(f"{s[:21]}{s[-4]}{hours:02}{minutes:02}", _FMT)
 
     except Exception as e:
         logging.debug(
