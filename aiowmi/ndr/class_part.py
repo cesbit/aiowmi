@@ -53,7 +53,7 @@ class ClassPart:
         self.class_heap, offset = Heap.from_data(data, offset)
 
         garbage_size = encoding_length - (offset - keep)
-        self.garbage = data[offset: offset+garbage_size]
+        #  self.garbage = data[offset: offset+garbage_size]
         offset += garbage_size
 
         self.qualifier_set.load(self.class_heap)

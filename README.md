@@ -71,56 +71,60 @@ async def main():
 # Start Query: {query.query}
 ###############################################################################
 """)
-            await query.start(conn, service)
-
-            # Try to use smart queries to reduce the network traffic size
-            # If the server does not support optimization,
-            # the ServerNotOptimized exception is raised.
             try:
-                await query.optimize()
-            except ServerNotOptimized:
-                pass  # We are not able to use optimized queries
+                await query.start(conn, service)
 
-            while True:
+                # Try to use smart queries to reduce the network traffic size
+                # If the server does not support optimization,
+                # the ServerNotOptimized exception is raised.
                 try:
-                    res = await query.next()
-                except WbemStopIteration:
-                    break
+                    await query.optimize()
+                except ServerNotOptimized:
+                    pass  # We are not able to use optimized queries
 
-                # Function `get_properties(..)` accepts a few keyword arguments:
-                #
-                # ignore_defaults:
-                #        Ignore default values. Set missing values to None
-                #        if a value does not exist in the current class.
-                #        ignore_defaults will always be True if ignore_missing
-                #        is set to True.
-                # ignore_missing:
-                #       If set to True, values missing in the current class
-                #       will not be part of the result.
-                # load_qualifiers:
-                #       Load the qualifiers of the properties. If False, the
-                #       property qualifier_set will have the offset in the
-                #       heap where the qualifiers are stored.
-                #
-                props = res.get_properties()
+                while True:
+                    try:
+                        res = await query.next()
+                    except WbemStopIteration:
+                        break
 
-                for name, prop in props.items():
-                    print(name, '\n\t', prop.value)
+                    # Function `get_properties(..)` accepts a few keyword
+                    # arguments:
+                    #
+                    # ignore_defaults:
+                    #        Ignore default values. Set missing values to None
+                    #        if a value does not exist in the current class.
+                    #        ignore_defaults will always be True if
+                    #        ignore_missing is set to True.
+                    # ignore_missing:
+                    #       If set to True, values missing in the current class
+                    #       will not be part of the result.
+                    # load_qualifiers:
+                    #       Load the qualifiers of the properties. If False,
+                    #       the property qualifier_set will have the offset
+                    #       in the heap where the qualifiers are stored.
+                    #
+                    props = res.get_properties()
 
-                    if prop.is_reference():
-                        # References can easy be queried using the
-                        # get_reference(..) function. The function accepts a
-                        # keyword argument `filter_props=[..]` with an optional
-                        # list of properties to query. If omitted, the function
-                        # returns all (*) properties.
-                        res = await prop.get_reference(service)
-                        ref_props = res.get_properties(ignore_missing=True)
-                        for name, prop in ref_props.items():
-                            print('\t\t', name, '\n\t\t\t', prop.value)
+                    for name, prop in props.items():
+                        print(name, '\n\t', prop.value)
 
-                print(f"""
+                        if prop.is_reference():
+                            # References can easy be queried using the
+                            # get_reference(..) function. The function accepts
+                            # a keyword argument `filter_props=[..]` with an
+                            # optional list of properties to query. If omitted,
+                            #  the function returns all (*) properties.
+                            res = await prop.get_reference(service)
+                            ref_props = res.get_properties(ignore_missing=True)
+                            for name, prop in ref_props.items():
+                                print('\t\t', name, '\n\t\t\t', prop.value)
+
+                    print(f"""
 ----------------------------------- End Item ----------------------------------
 """)
+            finally:
+                query.done()  # clean up memory
     finally:
         if service:
             service.close()

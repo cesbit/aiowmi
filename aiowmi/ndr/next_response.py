@@ -44,6 +44,9 @@ class NextResponse(ABC):
         if load_qualifiers:
             properties.set_qualifiers(class_part.class_heap)
 
+        # clear the class part from the object block
+        self._obj_block.class_part = None
+
         return properties.properties
 
     @abstractmethod

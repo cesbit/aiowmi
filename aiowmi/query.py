@@ -154,6 +154,13 @@ class Query:
         self._interface = interface
         self.next = self._next_smart
 
+    def done(self):
+        delattr(self, '_interface')
+        delattr(self, '_proto')
+        delattr(self, 'next')
+        if hasattr(self, '_class_parts'):
+            self._class_parts.clear()
+
     async def _next_smart(self, timeout: int = WBEM_INFINITE) -> NextResponse:
         """3.1.4.7.1 IWbemWCOSmartEnum::Next (Opnum 3)"""
         ucount = 1  # set the ucount fixed to one (1)
@@ -201,54 +208,3 @@ class Query:
 
         message = rpc_response.get_message(self._proto)
         return NextBigResponse(message)
-
-    async def _start_async(self, proto: 'Protocol', flags: int = 0):
-        """IWbemServices_ExecQuery.
-
-        3.1.4.3.19 IWbemServices::ExecQueryAsync (Opnum 21) [MS-WMI]
-
-        Optional flags: (import from aiowmi.const)
-
-        WBEM_FLAG_USE_AMENDED_QUALIFIERS (0x00020000)
-            If this bit is not set, the server SHOULD not return CIM
-            localizable information.
-            If this bit is set, the server SHOULD return CIM localizable
-            information for the CIM object, as specified in section 2.2.6.
-        WBEM_FLAG_SEND_STATUS (0x00000080)
-            If this bit is not set the server MUST make one final
-            IWbemObjectSink::SetStatus call on the interface pointer that
-            is provided in the pResponseHandler parameter.
-        WBEM_FLAG_PROTOTYPE (0x00000002)
-            If this bit is not set, the server MUST run the query.
-            If this bit is set, the server MUST only return the class
-        WBEM_FLAG_DIRECT_READ (0x00000200)
-            If this bit is not set, the server MUST consider the entire
-            class hierarchy when it returns the result.
-            If this bit is set, the server MUST disregard any derived
-            class when it searches the result.
-        """
-        assert 0, 'not working yet...'
-
-        flags = struct.pack('<L', flags)
-
-        pdu_data =\
-            ORPCTHIS.get_data(flags=0) +\
-            self._language.get_data() +\
-            self._query.get_data() +\
-            flags +\
-            get_null() +\
-            get_null()
-
-        request = RpcRequest(op_num=21, uuid_str=proto._interface.get_ipid())
-        request.set_pdu_data(pdu_data)
-
-        request_pkg = request.sign_data(proto)
-
-        rpc_response: RpcResponse = \
-            await proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
-
-        message = rpc_response.get_message(proto)
-
-        interface = QueryResponse(message)
-        self._interface = interface
-        self._proto = proto

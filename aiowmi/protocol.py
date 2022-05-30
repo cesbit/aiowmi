@@ -126,6 +126,16 @@ class Protocol(asyncio.Protocol):
         return f'{addr}:{port}'
 
     def close(self):
+        # close open requests, if any
+        for req in self._requests.values():
+            if req.fut is not None:
+                self.fut.cancel()
+        self._requests.clear()
+
+        # Clear interface
+        self._interface = None
+
+        # close transport, if exists
         if self._transport is None:
             return
         self._transport.close()
