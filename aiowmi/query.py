@@ -155,9 +155,9 @@ class Query:
         self.next = self._next_smart
 
     def done(self):
-        delattr(self, '_interface')
-        delattr(self, '_proto')
-        delattr(self, 'next')
+        self._interface = None
+        self._proto = None
+        self.next = None
         if hasattr(self, '_class_parts'):
             self._class_parts.clear()
 
