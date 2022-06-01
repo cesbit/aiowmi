@@ -84,6 +84,7 @@ class Properties:
                     (set_defaults and not prop.inherited_default):
                 if ignore_missing:
                     del self.properties[name]
+                prop.value = None
                 continue
 
             # TODO: what to do with prop.null_default ?
