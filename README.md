@@ -124,7 +124,7 @@ async def main():
 ----------------------------------- End Item ----------------------------------
 """)
             finally:
-                query.done()  # clean up memory
+                await query.done()  # clean up memory
     finally:
         if service:
             service.close()

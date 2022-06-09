@@ -1,3 +1,4 @@
+import logging
 import struct
 from typing import TYPE_CHECKING
 from .const import WBEM_FLAG_FORWARD_ONLY
@@ -154,7 +155,12 @@ class Query:
         self._interface = interface
         self.next = self._next_smart
 
-    def done(self):
+    async def done(self):
+        # this works, but do we need a rem release or not?
+        try:
+            await self._interface.rem_release(self._proto)
+        except Exception as e:
+            logging.warning(e)
         self._interface = None
         self._proto = None
         self.next = None

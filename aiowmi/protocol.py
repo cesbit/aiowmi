@@ -185,9 +185,3 @@ class Protocol(asyncio.Protocol):
             self._requests.pop(call_id)
 
         return response
-
-    async def rem_release(self):
-        assert self._interface, 'Protocol must have an interface'
-        request = RpcRequest(op_num=5, uuid_str=self._interface.get_ipid())
-
-        return self._dcom.rem_releae()
