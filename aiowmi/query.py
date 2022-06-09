@@ -41,6 +41,7 @@ class Query:
         self.query = query
         self.namespace = namespace
         self._query = WORDSTR(query)
+        self._interface = None
         self._language = self._WQL if language is None else WORDSTR(language)
 
     async def start(
@@ -157,11 +158,13 @@ class Query:
 
     async def done(self):
         # this works, but do we need a rem release or not?
-        try:
-            await self._interface.rem_release(self._proto)
-        except Exception as e:
-            logging.warning(e)
-        self._interface = None
+        if self._interface is not None:
+            try:
+                await self._interface.rem_release(self._proto)
+            except Exception as e:
+                logging.warning(e)
+            self._interface = None
+
         self._proto = None
         self.next = None
         if hasattr(self, '_class_parts'):
