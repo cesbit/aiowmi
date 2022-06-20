@@ -1,0 +1,64 @@
+
+# ----------------------------------- USER DEFINITIONS -----------------------------------
+# user identity config block - used for authentication between the wmic_server and the wmi target 
+# id key name will match the id passed in by calling clients - these ids must not use any other valid top level key in this file
+# id key name must be formatted according to the validation rules also specified in this file (since they are also passed in by the clients as http parameters)
+# data in the config block must have user and pass, domain is optional, tokens are optional
+
+user1:
+   user: MYUSER1
+   pass: MYPASS1
+   domain:
+   # optional list of valid id-specific tokens the client calling the wmi server can use to "authenticate" to the wmi server (not the wmi target)
+   # leave empty or do not include to not require these tokens
+   tokens:
+      - MYSECRETUSERACCESSTOKEN1
+      - MYSECRETUSERACCESSTOKEN2
+      
+user2:
+   user: MYUSER2
+   pass: MYPASS2
+   domain: MYDOMAIN2
+   tokens:
+      - MYSECRETUSERACCESSTOKEN1
+      - MYSECRETUSERACCESSTOKEN2
+
+user3:
+   user: MYUSER3
+   pass: MYPASS3
+   domain: MYDOMAIN3
+
+# ----------------------------------- TOKEN DEFINITIONS -----------------------------------
+# token array
+# optional list of valid tokens the client calling the wmi server can use to "authenticate" to the wmi server (not the wmi target)
+# any user above can use these tokens - if you need user-specific tokens you can add them in the user defintions above and leave these ones empty
+# leave empty or do not include to not require these tokens
+tokens:
+   - MYSECRETACCESSTOKEN1
+   - MYSECRETACCESSTOKEN2      
+
+
+# ----------------------------------- INPUT VALIDATION DEFINITIONS -----------------------------------
+# input validation regular expressions for http input variables
+# you must provide regular expressions for each of these, you can provide one or more regular expression
+# regular expressions are case insensitive
+# if you really want no validation, make the regular expression just a single dot ie .
+validation:
+   id:
+      # includes only alpha,digits,-,_
+      - ^[a-z0-9\-_]+$
+   token:
+      # includes only alpha,digits,-,_
+      - ^[a-z0-9\-_]+$
+   host:
+      # includes only alpha,digits,. or -
+      - ^[a-z0-9\.\-]+$
+   query:
+      # format like SELECT something FROM something
+      - ^select.+from)
+      - OTHERREGEX
+   namespace:
+      # format like alpha or digits then a "/" followed by alpha or digits
+      - ^[a-z0-9]+/[a-z0-9]+$
+   
+         
