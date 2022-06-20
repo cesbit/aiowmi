@@ -41,6 +41,13 @@ class Properties:
 
         return self, offset
 
+    def copy(self):
+        cp = Properties()
+        cp.props = self.props
+        cp.nd_table_size = self.nd_table_size
+        cp.properties = self.properties.copy()
+        return cp
+
     def load(self, heap: bytes, nd_value_table: bytes):
         properties = []
         for (name_ref, info_ref) in self.props:
@@ -61,7 +68,8 @@ class Properties:
             heap: bytes,
             nd_value_table: bytes,
             set_defaults: bool = False,
-            ignore_missing: bool = False):
+            ignore_missing: bool = False,
+            ignore_defaults: bool = False):
 
         assert not set_defaults or not ignore_missing, \
             'set_default and ignore_missing cannot both be True'
@@ -82,9 +90,14 @@ class Properties:
             if item_value == 0xffffffff or \
                     item_value == 0x0 or \
                     (set_defaults and not prop.inherited_default):
+
                 if ignore_missing:
                     del self.properties[name]
-                prop.value = None
+                    continue
+                if set_defaults:
+                    prop._set_type_default()
+                elif ignore_defaults:
+                    prop.value = None
                 continue
 
             # TODO: what to do with prop.null_default ?
