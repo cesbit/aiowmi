@@ -4,6 +4,7 @@ import random
 import string
 import socket
 import struct
+import datetime
 from Crypto.Cipher import DES, ARC4
 from Crypto.Hash import MD4
 from typing import Tuple
@@ -129,3 +130,8 @@ def is_fqdn(target):
         except Exception:
             return True
     return False
+
+
+def dt_fmt(dt: datetime.datetime):
+    minutes = dt.utcoffset().total_seconds() // 60
+    return f"{dt.strftime('%Y-%m-%d %H:%M:%S')}{minutes:+04g}"
