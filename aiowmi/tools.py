@@ -4,6 +4,7 @@ import random
 import string
 import socket
 import struct
+import datetime
 from Crypto.Cipher import DES, ARC4
 from Crypto.Hash import MD4
 from typing import Tuple
@@ -129,3 +130,12 @@ def is_fqdn(target):
         except Exception:
             return True
     return False
+
+
+def dt_fmt(dt: datetime.datetime) -> str:
+    """Returns type datetime as a string according the Microsoft
+    WMI Query Language (WQL) queries format.
+    https://docs.microsoft.com/en-us/windows/win32/wmisdk/cim-datetime
+    """
+    minutes = dt.utcoffset().total_seconds() // 60
+    return f"{dt.strftime('%Y-%m-%d %H:%M:%S')}{minutes:+04g}"
