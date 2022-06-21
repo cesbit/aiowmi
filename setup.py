@@ -26,7 +26,7 @@ setup(
     download_url=(
         'https://github.com/cesbit/'
         'aiowmi/tarball/v{}'.format(version)),
-    keywords=['parser', 'grammar', 'autocompletion'],
+    keywords=['WMI', 'Monitoring'],
     classifiers=[
         'Intended Audience :: Developers',
         'Operating System :: OS Independent',

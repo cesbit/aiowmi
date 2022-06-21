@@ -29,6 +29,10 @@ class NextResponse(ABC):
         class_part = object_block.class_part
         properties = class_part.properties
 
+        if ignore_missing:
+            # we need a copy when missing values must be ignored
+            properties = properties.copy()
+
         if not ignore_defaults:
             properties.set_prop_defaults(class_part.nd_value_table)
             properties.set_prop_values(
@@ -39,7 +43,8 @@ class NextResponse(ABC):
         properties.set_prop_values(
             object_block.instance_heap,
             object_block.nd_value_table,
-            ignore_missing=ignore_missing)
+            ignore_missing=ignore_missing,
+            ignore_defaults=ignore_defaults)
 
         if load_qualifiers:
             properties.set_qualifiers(class_part.class_heap)
