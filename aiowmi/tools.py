@@ -132,6 +132,10 @@ def is_fqdn(target):
     return False
 
 
-def dt_fmt(dt: datetime.datetime):
+def dt_fmt(dt: datetime.datetime) -> str:
+    """Returns type datetime as a string according the Microsoft
+    WMI Query Language (WQL) queries format.
+    https://docs.microsoft.com/en-us/windows/win32/wmisdk/cim-datetime
+    """
     minutes = dt.utcoffset().total_seconds() // 60
     return f"{dt.strftime('%Y-%m-%d %H:%M:%S')}{minutes:+04g}"
