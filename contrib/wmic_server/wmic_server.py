@@ -58,6 +58,8 @@ try:
     # and one more column to the left makes it under indented
     sys.stdout = io.TextIOWrapper(open(sys.stdout.fileno(), 'wb', 0),
                                   write_through=True)
+    # above line must start at    X
+
     # for flushing on newlines only use :
     # sys.stdout.reconfigure(line_buffering = True)
 except TypeError:
@@ -150,6 +152,7 @@ async def wmic_core():
     # and one more column to the left makes it under indented
     query_input = validate_input(request.method, 'query', '',
                                  cfg['validation']['query'])
+    # above line must start at   X
 
     # namespace defaulting to root/cimv2
     # please make sure that the "'root/" at the start of the wrapped line
@@ -158,6 +161,7 @@ async def wmic_core():
     # and one more column to the left makes it under indented
     namespace = validate_input(request.method, 'namespace',
                                'root/cimv2', cfg['validation']['namespace'])
+    # above line must start at X
 
     # flag to tell us if the http call contains a valid token
     valid_token = False
@@ -261,8 +265,7 @@ if __name__ == '__main__':
 
 """
 # in the following examples you might want to take out the \
-# and run it on one line if you have a modern screen
-# sorry if it makes it harder to read for you
+# and run it on one line for use cases where you have a modern screen
 
 # in production
 # gunicorn -b 127.0.0.1:2313 \
