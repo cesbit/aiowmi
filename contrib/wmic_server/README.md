@@ -1,7 +1,11 @@
 # WMIC Server
 
 Python WMIC Server which accepts HTTP connections from clients and passes WMI queries to Windows targets.
-Uses aiowmi to make the WMI calls. Uses the Flask framework for the server.
+Uses aiowmi to make the WMI calls. Uses the Flask framework for the server. Uses PyYAML to read the yaml configuration file.
+
+## Requirements
+
+The ```requirements.txt``` file specifies the current versions that this code was developed with. It may well run with older versions.
 
 ## Installation
 
