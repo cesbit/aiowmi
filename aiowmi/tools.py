@@ -138,4 +138,4 @@ def dt_fmt(dt: datetime.datetime) -> str:
     https://docs.microsoft.com/en-us/windows/win32/wmisdk/cim-datetime
     """
     minutes = dt.utcoffset().total_seconds() // 60
-    return f"{dt.strftime('%Y-%m-%d %H:%M:%S:%f')}{minutes:+04g}"
+    return f"{dt.strftime('%Y-%m-%d %H:%M:%S')}{minutes:+04g}"
