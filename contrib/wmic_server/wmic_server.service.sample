@@ -1,0 +1,22 @@
+[Unit]
+Description=WMIC Server
+
+[Service]
+Restart=always
+# we need the pythonpath to contain the aiowmi directory and the directory where the wmic_server.py is located
+
+# Update the following placeholders before using this file
+# AIOWMI_INSTALL_DIR
+# WMIC_SERVER_INSTALL_DIR
+# WMIC_SERVER_CONFIG
+
+ExecStart=nice gunicorn -b 127.0.0.1:2313 --pythonpath AIOWMI_INSTALL_DIR,WMIC_SERVER_INSTALL_DIR --threads 1 wmic_server:app
+ExecStop=/usr/bin/pkill -f "wmic_server:app"
+
+# Optionally, use these additional settings
+# WMIC_SERVER_CONFIG_DIRECTORY defaults to WMIC_SERVER_INSTALL_DIR
+# Environment=WMIC_SERVER_CONFIG=WMIC_SERVER_CONFIG_DIRECTORY/wmic_server.yaml
+# Environment=WMIC_SERVER_DEBUG=1
+
+[Install]
+WantedBy=multi-user.target
