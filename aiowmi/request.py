@@ -9,7 +9,7 @@ class Request:
         self.size = size
         self.fut = asyncio.Future()
 
-    async def readn(self, n) -> bytes:
+    async def readn(self, n: int, timeout: int = 5) -> bytes:
         assert self.fut is None
 
         data = self.buf[:n]
@@ -19,7 +19,7 @@ class Request:
         if n:
             self.fut = asyncio.Future()
             self.size = n
-            rest = await self.fut
+            rest = await asyncio.wait_for(self.fut, timeout)
             data += rest
 
         return data

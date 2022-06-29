@@ -49,7 +49,8 @@ class Query:
             conn: 'Connection',
             proto: 'Protocol',
             flags: int = (
-                WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY)):
+                WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY),
+            timeout: int = 60):
         """IWbemServices_ExecQuery.
         3.1.4.3.18 IWbemServices::ExecQuery (Opnum 20) [MS-WMI]
 
@@ -94,7 +95,10 @@ class Query:
         request_pkg = request.sign_data(proto)
 
         rpc_response: RpcResponse = \
-            await proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
+            await proto.get_dcom_response(
+                request_pkg,
+                size=RpcResponse.SIZE,
+                timeout=timeout)
 
         message = rpc_response.get_message(proto)
 
@@ -105,6 +109,7 @@ class Query:
         interface = QueryResponse(message)
         self._interface = interface
         self._proto = proto
+        self._timeout = timeout
         self.next = self._next_slow
 
     async def optimize(self):
@@ -129,6 +134,7 @@ class Query:
 
         request_pkg = request.sign_data(self._proto)
 
+        # optimizing shouldn't take long so we can use the default timeout
         rpc_response: RpcResponse = \
             await self._proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
 
@@ -142,6 +148,7 @@ class Query:
 
         request_pkg = request.sign_data(self._proto)
 
+        # optimizing shouldn't take long so we can use the default timeout
         rpc_response: RpcResponse = \
             await self._proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
 
@@ -184,8 +191,13 @@ class Query:
 
         request_pkg = request.sign_data(self._proto)
 
+        # Note: this timeout is not the time-out used in the package request
+        #       the timout here refers to the protocol time-out of this lib.
         rpc_response: RpcResponse = \
-            await self._proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
+            await self._proto.get_dcom_response(
+                request_pkg,
+                size=RpcResponse.SIZE,
+                timeout=self._timeout)
 
         message = rpc_response.get_message(self._proto)
         return SmartResponse(message, self._class_parts)
@@ -212,8 +224,13 @@ class Query:
 
         request_pkg = request.sign_data(self._proto)
 
+        # Note: this timeout is not the time-out used in the package request
+        #       the timout here refers to the protocol time-out of this lib.
         rpc_response: RpcResponse = \
-            await self._proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
+            await self._proto.get_dcom_response(
+                request_pkg,
+                size=RpcResponse.SIZE,
+                timeout=self._timeout)
 
         message = rpc_response.get_message(self._proto)
         return NextBigResponse(message)

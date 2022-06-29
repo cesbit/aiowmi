@@ -143,7 +143,8 @@ class Protocol(asyncio.Protocol):
     async def get_dcom_response(
             self,
             request: bytes,
-            size: Optional[int] = None) -> RpcBaseResp:
+            size: Optional[int] = None,
+            timeout: int = 5) -> RpcBaseResp:
         req = Request(size=size)
         call_id = self.get_call_id(request)
 
@@ -167,13 +168,13 @@ class Protocol(asyncio.Protocol):
                 n = response.rpc_common.frag_length
                 if n > ndata:
                     n -= RpcResponse.SIZE
-                    resp = await req.readn(n)
+                    resp = await req.readn(n, timeout)
                     pdu_data_list.append((resp, n))
 
                 if rpc_common.pfc_flags & PFC_LAST_FRAG:
                     break
 
-                data = await req.readn(size)
+                data = await req.readn(size, timeout)
 
             if pdu_data_list:
                 response.set_pdu_data_list(pdu_data_list)
