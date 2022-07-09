@@ -96,7 +96,9 @@ class Connection:
                 proto._auth_level)
 
         rpc_bind_ack: RpcBindAck = \
-            await proto.get_dcom_response(ntlm_negotiate_pkg)
+            await proto.get_dcom_response(
+                ntlm_negotiate_pkg,
+                timeout=self._timeout)
 
         proto._auth_type = rpc_bind_ack.auth.auth_type
         proto._auth_level = rpc_bind_ack.auth.auth_level
@@ -192,7 +194,10 @@ class Connection:
         request_pkg = request.seal_data(proto)
 
         rpc_response: RpcResponse = \
-            await proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
+            await proto.get_dcom_response(
+                request_pkg,
+                size=RpcResponse.SIZE,
+                timeout=self._timeout)
 
         message = rpc_response.get_message(proto)
 
@@ -251,7 +256,10 @@ class Connection:
         request_pkg = request.sign_data(proto)
 
         rpc_response: RpcResponse = \
-            await proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
+            await proto.get_dcom_response(
+                request_pkg,
+                size=RpcResponse.SIZE,
+                timeout=self._timeout)
 
         message = rpc_response.get_message(proto)
 

@@ -38,6 +38,7 @@ class NdrInterface(ABC):
 
         request_pkg = request.sign_data(proto)
 
+        # rem release shouldn't take long so we can use the default timeout
         rpc_response: RpcResponse = \
             await proto.get_dcom_response(request_pkg, RpcResponse.SIZE)
 
