@@ -84,20 +84,16 @@ def encode_value(value):
 
 # -------------------------------------------------------------------------
 async def get_json_output(query, conn, service):
-    await query.start(conn, service)
-
     result = []
-    while True:
-        try:
-            res = await query.next()
-        except WbemFalse:
-            break
-
-        # get the properties using ignore_defaults
-        # to convert integer null values to 0
-        props = res.get_properties(ignore_defaults=False)
-        item = {name: encode_value(prop.value) for name, prop in props.items()}
-        result.append(item)
+    async with query.start(conn, service) as qwork:
+        async for props in qwork.results(ignore_defaults=False):
+            # get the properties using ignore_defaults
+            # to convert integer null values to 0
+            item = {
+                name: encode_value(prop.value)
+                for name, prop in props.items()
+            }
+            result.append(item)
 
     return json.dumps(result)
 

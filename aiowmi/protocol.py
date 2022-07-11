@@ -144,7 +144,7 @@ class Protocol(asyncio.Protocol):
             self,
             request: bytes,
             size: Optional[int] = None,
-            timeout: int = 5) -> RpcBaseResp:
+            timeout: int = 10) -> RpcBaseResp:
         req = Request(size=size)
         call_id = self.get_call_id(request)
 

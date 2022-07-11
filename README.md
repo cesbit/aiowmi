@@ -30,8 +30,6 @@ import logging
 import time
 from aiowmi.connection import Connection
 from aiowmi.query import Query
-from aiowmi.exceptions import WbemStopIteration
-from aiowmi.exceptions import ServerNotOptimized
 
 
 async def main():
@@ -71,23 +69,8 @@ async def main():
 # Start Query: {query.query}
 ###############################################################################
 """)
-            try:
-                await query.start(conn, service)
-
-                # Try to use smart queries to reduce the network traffic size
-                # If the server does not support optimization,
-                # the ServerNotOptimized exception is raised.
-                try:
-                    await query.optimize()
-                except ServerNotOptimized:
-                    pass  # We are not able to use optimized queries
-
-                while True:
-                    try:
-                        res = await query.next()
-                    except WbemStopIteration:
-                        break
-
+            async with query.start(conn, service) as qwork:
+                async for props in qwork.results():
                     # Function `get_properties(..)` accepts a few keyword
                     # arguments:
                     #
@@ -104,8 +87,6 @@ async def main():
                     #       the property qualifier_set will have the offset
                     #       in the heap where the qualifiers are stored.
                     #
-                    props = res.get_properties()
-
                     for name, prop in props.items():
                         print(name, '\n\t', prop.value)
 
@@ -123,8 +104,6 @@ async def main():
                     print(f"""
 ----------------------------------- End Item ----------------------------------
 """)
-            finally:
-                await query.done()  # clean up memory
     finally:
         if service:
             service.close()
@@ -147,8 +126,7 @@ if __name__ == '__main__':
 
     ch.setFormatter(formatter)
 
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    asyncio.run(main())
 
 
 ```

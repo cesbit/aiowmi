@@ -59,10 +59,10 @@ class Connection:
         self._domain = domain
         self._loop = asyncio.get_event_loop() if loop is None else loop
         self._protocol: Optional[Protocol] = None
-        self._timeout: int = 5
+        self._timeout: int = 10
         self._namespace: Optional[str] = None
 
-    async def connect(self, timeout: int = 5):
+    async def connect(self, timeout: int = 10):
         conn = self._loop.create_connection(
             lambda: Protocol(loop=self._loop),
             host=self._host,
