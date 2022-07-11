@@ -29,7 +29,7 @@ class Query:
         self._query = WORDSTR(query)
         self._language = self._WQL if language is None else WORDSTR(language)
 
-    def go(
+    def context(
             self,
             conn: 'Connection',
             proto: 'Protocol',
