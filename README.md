@@ -69,7 +69,7 @@ async def main():
 # Start Query: {query.query}
 ###############################################################################
 """)
-            async with query.go(conn, service) as qc:
+            async with query.context(conn, service) as qc:
                 async for props in qc.results():
                     # Function `get_properties(..)` accepts a few keyword
                     # arguments:
