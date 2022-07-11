@@ -20,7 +20,7 @@ from .tools import get_null
 from .uuid import uuid_to_bin
 
 
-class Qwork:
+class QContext:
     def __init__(
             self,
             query,

@@ -5,7 +5,7 @@ from .const import WBEM_INFINITE
 from .const import WBEM_FLAG_FORWARD_ONLY
 from .const import WBEM_FLAG_RETURN_IMMEDIATELY
 from .dtypes.wordstr import WORDSTR
-from .qwork import Qwork
+from .qcontext import QContext
 
 
 if TYPE_CHECKING:
@@ -65,7 +65,7 @@ class Query:
             If this bit is set, the server MUST return an enumerator
             without reset capability, as specified in section
         """
-        return Qwork(self, conn, flags, proto, timeout, skip_optimize)
+        return QContext(self, conn, flags, proto, timeout, skip_optimize)
 
     async def start(
             self,
@@ -74,15 +74,15 @@ class Query:
             flags: int = (
                 WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY),
             timeout: int = 60):
-        self._qwork = Qwork(self, conn, flags, proto, timeout, True)
-        await self._qwork.start()
+        self._qc = QContext(self, conn, flags, proto, timeout, True)
+        await self._qc.start()
 
     def optimize(self) -> asyncio.Future:
-        return self._qwork.optimize()
+        return self._qc.optimize()
 
     def next(self, timeout: int = WBEM_INFINITE) -> asyncio.Future:
-        return self._qwork.next()
+        return self._qc.next()
 
     def done(self) -> asyncio.Future:
-        qwork, self._qwork = self._qwork, None
-        return qwork.release()
+        qc, self._qc = self._qc, None
+        return qc.release()

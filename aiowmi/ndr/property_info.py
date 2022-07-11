@@ -134,8 +134,8 @@ class PropertyInfo:
 
         query = Query(f'SELECT {props} FROM {wmiclass} WHERE {constraints}')
 
-        async with query.go(conn, service) as qwork:
-            res = await qwork.next()
+        async with query.go(conn, service) as qc:
+            res = await qc.next()
 
         return res
 
