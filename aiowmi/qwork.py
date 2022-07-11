@@ -2,11 +2,14 @@ import struct
 import asyncio
 from typing import OrderedDict
 from .const import WBEM_INFINITE
+from .dcom_const import IID_IWbemFetchSmartEnum_bin
 from .exceptions import WbemFalse, ServerNotOptimized
+from .ndr.get_smart_enum_response import GetSmartEnumResponse
 from .ndr.interface import NdrInterface
 from .ndr.next_big_response import NextBigResponse
 from .ndr.next_response import NextResponse
 from .ndr.orpcthis import ORPCTHIS
+from .ndr.property_info import PropertyInfo
 from .ndr.query_response import QueryResponse
 from .ndr.rem_query_interface_response import RemQueryInterfaceResponse
 from .ndr.smart_response import SmartResponse
@@ -15,9 +18,6 @@ from .rpc.request import RpcRequest
 from .rpc.response import RpcResponse
 from .tools import get_null
 from .uuid import uuid_to_bin
-from .ndr.get_smart_enum_response import GetSmartEnumResponse
-from .dcom_const import IID_IWbemFetchSmartEnum_bin
-from .ndr.property_info import PropertyInfo
 
 
 class Qwork:
@@ -37,7 +37,7 @@ class Qwork:
         self._skip_optimize = skip_optimize
         self._query = query
         self._interface = None
-        self._is_optimized = False
+        self.next = self._next_slow
 
     def results(
             self,
@@ -50,6 +50,10 @@ class Qwork:
         return self
 
     async def __aenter__(self):
+        await self.start()
+        return self
+
+    async def start(self):
         if self._conn._namespace != self._query.namespace:
             await self._conn.login_ntlm(
                 self._proto, namespace=self._query.namespace)
@@ -87,9 +91,6 @@ class Qwork:
                 await self.optimize()
             except ServerNotOptimized:
                 pass
-            else:
-                self._is_optimized = True
-        return self
 
     async def __aexit__(self, exc_type, exc, tb):
         await self.release()
@@ -109,12 +110,7 @@ class Qwork:
 
     @property
     def is_optimized(self) -> bool:
-        return self._is_optimized
-
-    def next(self, timeout: int = WBEM_INFINITE) -> asyncio.Future:
-        if self._is_optimized:
-            return self._next_smart(timeout)
-        return self._next_slow(timeout)
+        return self.next is self._next_smart
 
     async def optimize(self):
         """RemQueryInterface."""
@@ -230,6 +226,9 @@ class Qwork:
             await self._interface.rem_release(self._proto)
         except Exception:
             pass
+        self.next = None
         self._interface = None
         self._proto = None
         self._class_parts.clear()
+
+    done = release   # alias

@@ -1,5 +1,7 @@
+import asyncio
 import logging
 from typing import TYPE_CHECKING
+from .const import WBEM_INFINITE
 from .const import WBEM_FLAG_FORWARD_ONLY
 from .const import WBEM_FLAG_RETURN_IMMEDIATELY
 from .dtypes.wordstr import WORDSTR
@@ -27,7 +29,7 @@ class Query:
         self._query = WORDSTR(query)
         self._language = self._WQL if language is None else WORDSTR(language)
 
-    def start(
+    def go(
             self,
             conn: 'Connection',
             proto: 'Protocol',
@@ -64,3 +66,23 @@ class Query:
             without reset capability, as specified in section
         """
         return Qwork(self, conn, flags, proto, timeout, skip_optimize)
+
+    async def start(
+            self,
+            conn: 'Connection',
+            proto: 'Protocol',
+            flags: int = (
+                WBEM_FLAG_RETURN_IMMEDIATELY | WBEM_FLAG_FORWARD_ONLY),
+            timeout: int = 60):
+        self._qwork = Qwork(self, conn, flags, proto, timeout, True)
+        await self._qwork.start()
+
+    def optimize(self) -> asyncio.Future:
+        return self._qwork.optimize()
+
+    def next(self, timeout: int = WBEM_INFINITE) -> asyncio.Future:
+        return self._qwork.next()
+
+    def done(self) -> asyncio.Future:
+        qwork, self._qwork = self._qwork, None
+        return qwork.release()

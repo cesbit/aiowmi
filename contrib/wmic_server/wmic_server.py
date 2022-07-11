@@ -85,7 +85,7 @@ def encode_value(value):
 # -------------------------------------------------------------------------
 async def get_json_output(query, conn, service):
     result = []
-    async with query.start(conn, service) as qwork:
+    async with query.go(conn, service) as qwork:
         async for props in qwork.results(ignore_defaults=False):
             # get the properties using ignore_defaults
             # to convert integer null values to 0
