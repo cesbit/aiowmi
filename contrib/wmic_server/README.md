@@ -1,11 +1,18 @@
 # WMIC Server
 
 Python WMIC Server which accepts HTTP connections from clients and passes WMI queries to Windows targets.
+
+The server sits in between a client wanting to perform WMI queries and the target host that will respond to the WMI queries, like this:
+
+CLIENT ---> WMIC_SERVER ---> WMI_TARGET
+
 Uses aiowmi to make the WMI calls. Uses the Flask framework for the server. Uses PyYAML to read the yaml configuration file.
 
 ## Requirements
+The code requires Python 3.
 
-The ```requirements.txt``` file specifies the current versions that this code was developed with. It may well run with older versions.
+The ```requirements.txt``` file specifies the versions of the prerequisites that this code was developed with. It may well run with older versions.
+The method of installing the prerequisites depends on the platform that you are installing on. Some Linux distributions may come with packages that can be installed using, for example, ```dnf install python3-flask``` whereas for others you may need to ```pip install flask```
 
 ## Installation
 
@@ -22,10 +29,6 @@ git clone https://github.com/cesbit/aiowmi
 Rename the included ``wmic_server.yaml.sample`` to ``wmic_server.yaml``. The server will look for this file in the same directory as the main python code ```wmic_server.py```
 
 This file is fairly well documented in the comments.
-
-The server sits in between a client wanting to perform WMI queries and the target host that will respond to the WMI queries, like this:
-
-CLIENT ---> WMIC_SERVER ---> WMI_TARGET
 
 There are 3 types of configuration in this server config file:
 
