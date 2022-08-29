@@ -24,9 +24,8 @@ class QueryResponse(NdrInterface):
         offset += self.FMT1_32_SZ
 
         self.objref = ObjRefStandard.from_data(data, offset, size)
-        offset += size
 
-        self.error_code, = struct.unpack_from('<L', data, offset)
+        self.error_code, = struct.unpack_from('<L', data, -4)
         assert self.error_code == 0, f'error code: {self.error_code}'
 
     def get_ipid(self):

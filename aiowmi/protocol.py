@@ -30,7 +30,9 @@ class Protocol(asyncio.Protocol):
         self._auth_level: int = None
         self._flags = None
         self._client_seal: Optional[Callable] = None
+        self._client_sign: Optional[Callable] = None
         self._server_seal: Optional[Callable] = None
+        self._server_sign: Optional[Callable] = None
         self._iid = None
 
     @staticmethod
