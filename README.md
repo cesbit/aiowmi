@@ -96,7 +96,7 @@ async def main():
                             # a keyword argument `filter_props=[..]` with an
                             # optional list of properties to query. If omitted,
                             #  the function returns all (*) properties.
-                            res = await prop.get_reference(service)
+                            res = await prop.get_reference(conn, service)
                             ref_props = res.get_properties(ignore_missing=True)
                             for name, prop in ref_props.items():
                                 print('\t\t', name, '\n\t\t\t', prop.value)
