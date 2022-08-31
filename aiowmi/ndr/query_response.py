@@ -23,7 +23,7 @@ class QueryResponse(NdrInterface):
         ) = struct.unpack_from(self.FMT1_32, data, offset)
         offset += self.FMT1_32_SZ
 
-        self.objref = ObjRefStandard.from_data(data, offset, size)
+        self.objref = ObjRefStandard.from_data(data, offset)
 
         self.error_code, = struct.unpack_from('<L', data, -4)
         assert self.error_code == 0, f'error code: {self.error_code}'

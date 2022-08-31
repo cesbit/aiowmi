@@ -44,6 +44,7 @@ class ObjRefStd(ObjRef):
         return self, offset
 
     def get_data(self) -> bytes:
+        # TODO self.ipid
         return super().get_data() + struct.pack(
             self.STANDARD_FMT,
             self.std_flags,

@@ -3,6 +3,8 @@
 See: 2.2.18.6, OBJREF_CUSTOM
 """
 import struct
+
+from ..ndr.dualstring_array import DualStringArray
 from ..uuid import bin_to_str, CLSID_SZ
 from .objref import ObjRef
 
@@ -21,9 +23,8 @@ class ObjRefStandard(ObjRef):
     STANDARD_FMT_SZ = struct.calcsize(STANDARD_FMT)
 
     @classmethod
-    def from_data(cls, data: bytes, offset: int, size: int) \
+    def from_data(cls, data: bytes, offset: int) \
             -> 'ObjRefStandard':
-        end = offset+size
         self = cls()
 
         self.read_objref(data, offset)
@@ -46,7 +47,7 @@ class ObjRefStandard(ObjRef):
         self.ipid = bin_to_str(data, offset=offset)
         offset += CLSID_SZ
 
-        self.sa_res_addr = data[offset:end]
+        self.sa_res_addr = DualStringArray.from_data(data, offset)
         return self
 
     def get_data(self) -> bytes:
@@ -56,4 +57,4 @@ class ObjRefStandard(ObjRef):
             0,
             self.oxid,
             self.oid
-        ) + self.sa_res_addr
+        ) + self.sa_res_addr.get_data()
