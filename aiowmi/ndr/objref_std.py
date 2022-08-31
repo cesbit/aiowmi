@@ -42,12 +42,3 @@ class ObjRefStd(ObjRef):
         offset += CLSID_SZ
 
         return self, offset
-
-    def get_data(self) -> bytes:
-        return super().get_data() + struct.pack(
-            self.STANDARD_FMT,
-            self.std_flags,
-            0,
-            self.oxid,
-            self.oid
-        ) + self.sa_res_addr

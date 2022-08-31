@@ -1,7 +1,7 @@
 import logging
 import struct
 from ..exceptions import NoBindingException
-from ..tools import is_fqdn
+from ..tools import is_fqdn, pad
 from .activation_blob import ActivationBlob
 from .interface import NdrInterface
 from .objref_custom import ObjRefCustom
@@ -29,7 +29,7 @@ class RemoteCreateInstanceResponse(NdrInterface):
         offset += self.FMT1_32_SZ
 
         self.objref = ObjRefCustom.from_data(data, offset, size)
-        offset += size
+        offset += size + pad(size)
 
         ab_data = ActivationBlob.from_data(self.objref.object_data)
 

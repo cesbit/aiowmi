@@ -3,11 +3,15 @@
 See: 2.2.18.6, OBJREF_CUSTOM
 """
 import struct
-from typing import Union
+from typing import Union, TYPE_CHECKING
 from ..uuid import bin_to_str, CLSID_SZ
 from .const import FLAGS_OBJREF_CUSTOM
 from .const import FLAGS_OBJREF_EXTENDED
 from .const import FLAGS_OBJREF_STANDARD
+
+if TYPE_CHECKING:
+    from .objref_standard import ObjRefStandard
+    from .objref_custom import ObjRefCustom
 
 
 class ObjRef:
@@ -51,6 +55,7 @@ class ObjRef:
             return ObjRefCustom.from_data(data, offset, size)
 
         if flags & FLAGS_OBJREF_EXTENDED:
+            raise NotImplementedError('OBJREF_EXTENDED not implemented yet')
             from .objref_extended import ObjRefExtended
             return ObjRefExtended.from_data(data, offset, size)
 

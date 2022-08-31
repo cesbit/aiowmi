@@ -3,6 +3,7 @@ from .orpcthat import ORPCTHAT
 from .objref_standard import ObjRefStandard
 from .interface import NdrInterface
 from .objref import ObjRef
+from ..tools import pad
 from ..uuid import uuid_to_bin
 from uuid import uuid4
 
@@ -28,7 +29,7 @@ class GetSmartEnumResponse(NdrInterface):
         self.objref: ObjRefStandard =\
             ObjRef.from_data(data, offset, ul_cnt_data_ma)
 
-        offset += ul_cnt_data_ma
+        offset += ul_cnt_data_ma + pad(ul_cnt_data_ma)
         self.error_code, = struct.unpack_from('<L', data, offset)
 
         # generate a random proxy guid

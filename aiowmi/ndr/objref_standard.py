@@ -3,6 +3,7 @@
 See: 2.2.18.6, OBJREF_CUSTOM
 """
 import struct
+
 from ..uuid import bin_to_str, CLSID_SZ
 from .objref import ObjRef
 
@@ -21,7 +22,7 @@ class ObjRefStandard(ObjRef):
     STANDARD_FMT_SZ = struct.calcsize(STANDARD_FMT)
 
     @classmethod
-    def from_data(cls, data: bytes, offset: int, size: int) \
+    def from_data(cls, data: bytes, offset: int, size=int) \
             -> 'ObjRefStandard':
         end = offset+size
         self = cls()
@@ -46,6 +47,7 @@ class ObjRefStandard(ObjRef):
         self.ipid = bin_to_str(data, offset=offset)
         offset += CLSID_SZ
 
+        # This is a DualString (see dualstring.py)
         self.sa_res_addr = data[offset:end]
         return self
 
