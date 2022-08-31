@@ -1,6 +1,7 @@
 import struct
 from ..cim_type import CimType
 from .encoded_string import EncodedString
+from .object_block import ObjectBlock
 from ..dtypes.dt import dt_from_str
 
 
