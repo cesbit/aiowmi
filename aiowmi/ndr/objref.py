@@ -48,15 +48,15 @@ class ObjRef:
 
         if flags & FLAGS_OBJREF_STANDARD:
             from .objref_standard import ObjRefStandard
-            return ObjRefStandard.from_data(data, offset)
+            return ObjRefStandard.from_data(data, offset, size)
 
         if flags & FLAGS_OBJREF_CUSTOM:
             from .objref_custom import ObjRefCustom
             return ObjRefCustom.from_data(data, offset, size)
 
-        # TODO
-        # if flags & FLAGS_OBJREF_EXTENDED:
-        #     from .objref_extended import ObjRefExtended
-        #     return ObjRefExtended.from_data(data, offset, size)
+        if flags & FLAGS_OBJREF_EXTENDED:
+            raise NotImplementedError('OBJREF_EXTENDED not implemented yet')
+            from .objref_extended import ObjRefExtended
+            return ObjRefExtended.from_data(data, offset, size)
 
         assert 0, f'unsupported ObjRef (flags: {flags})'

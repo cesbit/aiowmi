@@ -29,10 +29,11 @@ class RemoteCreateInstanceResponse(NdrInterface):
         offset += self.FMT1_32_SZ
 
         self.objref = ObjRefCustom.from_data(data, offset, size)
+        offset += size
 
         ab_data = ActivationBlob.from_data(self.objref.object_data)
 
-        self.error_code, = struct.unpack_from('<L', data, -4)
+        self.error_code, = struct.unpack_from('<L', data, offset)
         self.props_out_info = PropsOutInfo(ab_data.properties[0])
         self.scm_reply_info_data = ScmReplyInfoData(ab_data.properties[1])
         self._binding = None

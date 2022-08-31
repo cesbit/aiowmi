@@ -28,7 +28,8 @@ class GetSmartEnumResponse(NdrInterface):
         self.objref: ObjRefStandard =\
             ObjRef.from_data(data, offset, ul_cnt_data_ma)
 
-        self.error_code, = struct.unpack_from('<L', data, -4)
+        offset += ul_cnt_data_ma
+        self.error_code, = struct.unpack_from('<L', data, offset)
 
         # generate a random proxy guid
         self.proxy_guid = uuid_to_bin(str(uuid4()))
