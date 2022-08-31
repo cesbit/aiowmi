@@ -1,7 +1,6 @@
 import struct
 from ..cim_type import CimType
 from .encoded_string import EncodedString
-from .object_block import ObjectBlock
 from ..dtypes.dt import dt_from_str
 
 
@@ -41,7 +40,8 @@ class EncodedValue:
                 ) = struct.unpack_from(cls.FMT, heap, offset=offset)
                 offset += cls.FMT_SZ
 
-                item, offset = ObjectBlock.from_data(heap, offset)
+                item, offset = \
+                    ObjectBlock.from_data(heap, offset)  # type: ignore
                 # TODO: test parsing
                 # msb = METHOD_SIGNATURE_BLOCK(heapData)
                 # unit = ENCODING_UNIT()
