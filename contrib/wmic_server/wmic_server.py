@@ -247,7 +247,7 @@ async def wmic_core():
         finally:
             if service:
                 service.close()
-                conn.close()
+            conn.close()
     else:
         return "ERROR: Invalid token"
 
