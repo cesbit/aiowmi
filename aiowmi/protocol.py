@@ -134,8 +134,7 @@ class Protocol(asyncio.Protocol):
     def close(self):
         # close open requests, if any
         for req in self._requests.values():
-            if req.fut is not None:
-                req.fut.cancel()
+            req.done()
 
         # Clear interface
         self._interface = None
