@@ -9,6 +9,11 @@ class Request:
         self.size = size
         self.fut = asyncio.Future()
 
+    def done(self):
+        if self.fut is not None:
+            self.fut.cancel()
+        self.fut = None
+
     async def readn(self, n: int, timeout: int = 5) -> bytes:
         assert self.fut is None
 

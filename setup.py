@@ -1,4 +1,6 @@
 """setup.py
+locan installation: pip install -e .
+
 python setup.py sdist
 twine upload --repository pypitest dist/aiowmi-x.x.x.tar.gz
 twine upload --repository pypi dist/aiowmi-x.x.x.tar.gz

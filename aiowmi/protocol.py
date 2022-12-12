@@ -1,7 +1,7 @@
 import logging
 import asyncio
 import struct
-from typing import Optional, Callable
+from typing import Optional, Callable, Dict
 from .dcom import Dcom
 from .rpc.common import RpcCommon
 from .rpc.response import RpcResponse
@@ -21,7 +21,7 @@ class Protocol(asyncio.Protocol):
         self._transport = None
         self._buf = None
         self._tmp = b''
-        self._requests = {}
+        self._requests: Dict[int, Request] = {}
         self._dcom = Dcom()
 
         # The properties below will be set by connection.py
@@ -85,7 +85,11 @@ class Protocol(asyncio.Protocol):
         if more is False:
             return None
 
-        req, data, = self._requests[self._buf.call_id], self._buf.data
+        req, data, = self._requests.get(self._buf.call_id), self._buf.data
+        if req is None:
+            if more:
+                self.data_received(more)
+            return
 
         self._buf = None
 
@@ -184,6 +188,6 @@ class Protocol(asyncio.Protocol):
                 response.throw()
 
         finally:
-            self._requests.pop(call_id)
+            self._requests.pop(call_id).done()
 
         return response
