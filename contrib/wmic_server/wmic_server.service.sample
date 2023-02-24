@@ -10,6 +10,8 @@ Restart=always
 # WMIC_SERVER_INSTALL_DIR
 # WMIC_SERVER_CONFIG
 
+# When using wmic server to do many wmi calls, e.g. from a monitoring tool like icinga, you may have to configure more than one
+# thread and several workers for gunicorn, using the --threads and --workers options. Otherwise, you may get timeouts.
 ExecStart=nice gunicorn -b 127.0.0.1:2313 --pythonpath AIOWMI_INSTALL_DIR,WMIC_SERVER_INSTALL_DIR --threads 1 wmic_server:app
 ExecStop=/usr/bin/pkill -f "wmic_server:app"
 
