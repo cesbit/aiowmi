@@ -57,7 +57,7 @@ try:
     # since one more column to the right makes it over indented
     # and one more column to the left makes it under indented
     sys.stdout = io.TextIOWrapper(open(sys.stdout.fileno(), 'wb', 0),
-                                  write_through=True)
+                                  write_through=True, encoding='utf-8')
     # above line must start at    X
 
     # for flushing on newlines only use :
