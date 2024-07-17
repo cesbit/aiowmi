@@ -1,19 +1,15 @@
+from __future__ import annotations
 import struct
-import asyncio
-from typing import OrderedDict
 from .const import WBEM_INFINITE
 from .dcom_const import IID_IWbemFetchSmartEnum_bin
 from .exceptions import WbemFalse, ServerNotOptimized
 from .ndr.get_smart_enum_response import GetSmartEnumResponse
-from .ndr.interface import NdrInterface
 from .ndr.next_big_response import NextBigResponse
 from .ndr.next_response import NextResponse
 from .ndr.orpcthis import ORPCTHIS
-from .ndr.property_info import PropertyInfo
 from .ndr.query_response import QueryResponse
 from .ndr.rem_query_interface_response import RemQueryInterfaceResponse
 from .ndr.smart_response import SmartResponse
-from .protocol import Protocol
 from .rpc.request import RpcRequest
 from .rpc.response import RpcResponse
 from .tools import get_null
@@ -43,7 +39,7 @@ class QContext:
             self,
             ignore_defaults: bool = False,
             ignore_missing: bool = False,
-            load_qualifiers: bool = False) -> OrderedDict[str, PropertyInfo]:
+            load_qualifiers: bool = False) -> QContext:
         self._ignore_defaults = ignore_defaults
         self._ignore_missing = ignore_missing
         self._load_qualifiers = load_qualifiers
