@@ -39,6 +39,7 @@ from .ndr.ntlm_login_response import NTLMLoginResponse
 from .ntlm.login import NTLMLogin
 from .logger import logger
 
+
 class Connection:
 
     def __init__(
