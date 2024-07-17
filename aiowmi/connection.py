@@ -58,7 +58,6 @@ class Connection:
         self._protocol: Optional[Protocol] = None
         self._timeout: int = 10
         self._namespace: Optional[str] = None
-        logger.info('test')
 
     async def connect(self, timeout: int = 10):
         conn = self._loop.create_connection(
