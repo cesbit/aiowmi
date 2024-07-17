@@ -1,6 +1,6 @@
-import logging
 from typing import Union
 from datetime import datetime, timedelta
+from ..logger import logger
 
 
 _FMT = '%Y%m%d%H%M%S.%f%z'
@@ -31,7 +31,7 @@ def dt_from_str(s: str) -> Union[datetime, timedelta]:
                 microseconds=int(s[15:21])
             )
         except Exception as e:
-            logging.debug(
+            logger.debug(
                 f'invalid interval `{s}` ({e}); return timedelta(0)')
             td = timedelta(0)
         return td
@@ -52,7 +52,7 @@ def dt_from_str(s: str) -> Union[datetime, timedelta]:
         dt = datetime.strptime(f"{s[:21]}{s[-4]}{hours:02}{minutes:02}", _FMT)
 
     except Exception as e:
-        logging.debug(
+        logger.debug(
             f'invalid datetime `{s}` ({e}); '
             'return datetime.fromtimestamp(0)')
         dt = datetime.fromtimestamp(0)

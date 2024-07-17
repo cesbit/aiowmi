@@ -1,11 +1,9 @@
-import logging
 import asyncio
 import struct
 from typing import Optional, Callable, Dict
 from .dcom import Dcom
 from .rpc.common import RpcCommon
 from .rpc.response import RpcResponse
-from .rpc.request import RpcRequest
 from .rpc.fault import RpcFault
 from .ndr.interface import NdrInterface
 from .rpc.const import PFC_LAST_FRAG
@@ -13,6 +11,7 @@ from .rpc.baseresp import RpcBaseResp
 from .request import Request
 from .exceptions import DcomException
 from .buf import Buf
+from .logger import logger
 
 
 class Protocol(asyncio.Protocol):
@@ -46,13 +45,13 @@ class Protocol(asyncio.Protocol):
         '''
 
         self._transport = transport
-        logging.info(f'connection made: {self.connection_info()}')
+        logger.info(f'connection made: {self.connection_info()}')
 
     def connection_lost(self, exc: Exception) -> None:
         '''
         override asyncio.Protocol
         '''
-        logging.info(f'connection lost {self.connection_info()}')
+        logger.info(f'connection lost {self.connection_info()}')
         self._transport = None
 
     def __bool__(self):

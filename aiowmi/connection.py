@@ -1,4 +1,3 @@
-import logging
 import asyncio
 from typing import Optional, Callable
 from Crypto.Cipher import ARC4
@@ -34,13 +33,11 @@ from .dcom_const import (
     IID_IWbemServices,
 )
 from .rpc.request import RpcRequest
-from .tools import pad4
 from .rpc.response import RpcResponse
-from .rpc.auth_verifier_co import RpcAuthVerifierCo
 from .ndr.remote_create_instance_response import RemoteCreateInstanceResponse
 from .ndr.ntlm_login_response import NTLMLoginResponse
 from .ntlm.login import NTLMLogin
-
+from .logger import logger
 
 class Connection:
 
@@ -61,6 +58,7 @@ class Connection:
         self._protocol: Optional[Protocol] = None
         self._timeout: int = 10
         self._namespace: Optional[str] = None
+        logger.info('test')
 
     async def connect(self, timeout: int = 10):
         conn = self._loop.create_connection(
@@ -218,7 +216,7 @@ class Connection:
                 conn,
                 timeout=self._timeout)
         except Exception as e:
-            logging.warning(
+            logger.warning(
                 f'failed to connect to {self._host} ({port}); '
                 f'fallback to {host} ({port})...')
 

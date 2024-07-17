@@ -112,19 +112,19 @@ async def main():
         print('done in ', end-start)
 
 if __name__ == '__main__':
-    logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
-
-    ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
-
     formatter = logging.Formatter(
             fmt='[%(levelname)1.1s %(asctime)s %(module)s:%(lineno)d] ' +
                 '%(message)s',
             datefmt='%y%m%d %H:%M:%S',
             style='%')
 
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
     ch.setFormatter(formatter)
+
+    logger = logging.getLogger('aiowmi')
+    logger.addHandler(ch)
+    logger.setLevel(logging.DEBUG)
 
     asyncio.run(main())
 
