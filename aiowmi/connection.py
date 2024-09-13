@@ -55,7 +55,7 @@ class Connection:
         self._username = username
         self._password = password
         self._domain = domain
-        self._loop = asyncio.get_event_loop() if loop is None else loop
+        self._loop = asyncio.get_running_loop() if loop is None else loop
         self._protocol: Optional[Protocol] = None
         self._timeout: int = 10
         self._namespace: Optional[str] = None
