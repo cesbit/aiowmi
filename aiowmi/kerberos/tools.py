@@ -1,211 +1,100 @@
-import hmac
-import hashlib
-import struct
 import functools
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+import hashlib
 import hmac
+import math
+import struct
+from functools import reduce
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 
-def derive_key__(base_key, usage, byte_constant):
-    # n-fold van de constante naar 16 bytes (bloklengte)
-    constant = struct.pack('>I', usage) + struct.pack('B', byte_constant)
-    # RFC 3961 vereist n-folding. Voor 16 bytes input naar 16 bytes output
-    # is de constante al 'gevouwen'. We vullen alleen aan met nullen.
-    constant = constant.ljust(16, b'\x00')
+def _nfold(ba, nbytes):
+    def rotate_right(ba, nbits):
+        ba = bytearray(ba)
+        n = len(ba)
+        nbits %= (n * 8)
+        # Rotate bytes
+        for _ in range(nbits // 8):
+            ba = bytearray([ba[-1]]) + ba[:-1]
+        # Rotate remaining bits
+        nbits %= 8
+        if nbits > 0:
+            last_bit = 0
+            for i in range(len(ba)):
+                new_last_bit = ba[i] & ((1 << nbits) - 1)
+                ba[i] = (ba[i] >> nbits) | (last_bit << (8 - nbits))
+                last_bit = new_last_bit
+            ba[0] |= (last_bit << (8 - nbits))
+        return ba
 
+    def add_ones_complement(ba1, ba2):
+        n = len(ba1)
+        res = [0] * n
+        carry = 0
+        for i in range(n-1, -1, -1):
+            s = ba1[i] + ba2[i] + carry
+            res[i] = s & 0xff
+            carry = s >> 8
+
+        # Voeg carry weer toe aan het begin (1s complement)
+        pos = n - 1
+        while carry and pos >= 0:
+            s = res[pos] + carry
+            res[pos] = s & 0xff
+            carry = s >> 8
+            pos -= 1
+        return bytearray(res)
+
+    slen = len(ba)
+    # Bereken LCM in bytes (niet bits, om complexiteit te verlagen)
+    def lcm(a, b):
+        return abs(a*b) // math.gcd(a, b)
+
+    lcm_val = lcm(slen, nbytes)
+
+    # Maak de grote bitstream door telkens 13 bits te roteren
+    big_str = bytearray()
+    curr = bytearray(ba)
+    for i in range(lcm_val // slen):
+        big_str += curr
+        # De rotatie is ALTIJD 13 bits ten opzichte van de vorige stap
+        curr = rotate_right(curr, 13)
+
+    # Snijd de grote stream in stukken van 'nbytes' en tel ze op
+    parts = [big_str[i:i+nbytes] for i in range(0, len(big_str), nbytes)]
+    return bytes(reduce(add_ones_complement, parts))
+
+
+def derive_key(base_key, usage_int, payload_byte=None):
+    constant = struct.pack('>I', usage_int)
+    if payload_byte is not None:
+        constant += bytes([payload_byte])
+
+    nfolded = _nfold(constant, 16)
     cipher = Cipher(algorithms.AES(base_key), modes.ECB())
+    encryptor1 = cipher.encryptor()
+    b1 = encryptor1.update(nfolded) + encryptor1.finalize()
+    encryptor2 = cipher.encryptor()
+    b2 = encryptor2.update(b1) + encryptor2.finalize()
 
-    # DK(key, constant) = D1 | D2 | ...
-    # Waarbij D1 = Encrypt(constant)
-    # Waarbij D2 = Encrypt(D1) <--- DIT IS JOUW PART 2, MAAR...
-
-    # In Kerberos AES-256 (RFC 3962) werkt het zo:
-    # De afgeleide sleutel is 32 bytes.
-    # We versleutelen de constante om het eerste blok te krijgen.
-    encryptor = cipher.encryptor()
-    part1 = encryptor.update(constant) + encryptor.finalize()
-
-    # We versleutelen part1 om het tweede blok te krijgen.
-    encryptor = cipher.encryptor()
-    part2 = encryptor.update(part1) + encryptor.finalize()
-
-    # TOT HIER klopt je logica met wat je schreef, MAAR:
-    # Voor Kerberos moet de output van DK door een functie genaamd 'random-to-key'
-    # Voor AES is 'random-to-key' een NO-OP (niets doen), behalve
-    # dat we zeker moeten weten dat we de juiste lengte hebben.
-
-    return part1 + part2
+    return b1 + b2
 
 
-def n_fold(data, n):
-    # data is de input (5 bytes), n is de output lengte (16 bytes)
-    import math
-    def gcd(a, b):
-        while b: a, b = b, a % b
-        return a
-
-    data_len = len(data)
-    lcm = (data_len * n) // gcd(data_len, n)
-
-    out = [0] * n
-    carry = 0
-    for i in range(lcm - 1, -1, -1):
-        # Verschuif en tel op (RFC logic)
-        msbit = (i // n) % data_len
-        val = data[data_len - 1 - msbit]
-        # bit-manipulatie voor de shift over n-bits
-        # Dit is complex handmatig, maar hier is de kern:
-        # Voor 5 naar 16 bytes is de constante bij AES256 altijd:
-        pass
-
-    # SNELKOPPELING: Omdat we AES-256 (32 bytes key, 16 bytes block) gebruiken,
-    # is de n-fold van de 5-byte constante (usage + constant) ALTIJD dit:
-    if data == b'\x00\x00\x00\x01\xaa': # Usage 1, Ke
-        return bytes.fromhex('00000001aa01aa000001aa00000001aa')
-    if data == b'\x00\x00\x00\x01\x55': # Usage 1, Ki
-        return bytes.fromhex('00000001550155000001550000000155')
-
-    return data.ljust(n, b'\x00') # Backup (maar check de hex hierboven!)
-
-def derive_key(base_key, usage, byte_constant):
-    # 1. Maak de 5-byte input
-    constant_5 = struct.pack('>I', usage) + struct.pack('B', byte_constant)
-
-    # 2. Gebruik de JUISTE n-folded constante (16 bytes)
-    # Voor AES256/Usage 1/0xAA is dit NIET simpelweg ljust met nullen!
-    folded_constant = n_fold(constant_5, 16)
-
-    cipher = Cipher(algorithms.AES(base_key), modes.ECB())
-
-    encryptor = cipher.encryptor()
-    part1 = encryptor.update(folded_constant) + encryptor.finalize()
-
-    encryptor = cipher.encryptor()
-    part2 = encryptor.update(part1) + encryptor.finalize()
-
-    return part1 + part2
-
-
-def encrypt_preauth_timestamp(base_key, timestamp_str):
-    """
-    Volledige AES-256-CTS + HMAC-SHA1-96 voor Kerberos.
-    base_key: De 32-byte PBKDF2 sleutel.
-    timestamp_str: '20260303095437Z'
-    """
-    usage = 1 # AS-REQ PA-ENC-TIMESTAMP
-
-    # 1. Leid de specifieke sleutels af
-    ke = derive_key(base_key, usage, 0xAA) # Encryption key
-    ki = derive_key(base_key, usage, 0x55) # Integrity key (voor HMAC)
-
-    # 2. Plaintext ASN.1 structuur
-    plain = b'\x30\x1a\xa0\x11\x18\x0f' + timestamp_str.encode() + b'\xa1\x05\x02\x03\x00\x00\x00'
-
-    # 3. Encryptie (AES-CTS)
-    # Gebruik je bestaande aes_cts_encrypt functie met 'ke'
-    ciphertext = aes_cts_encrypt(ke, plain)
-
-    # 4. Integriteit (HMAC-SHA1-96)
-    # RFC 3961: HMAC van de ciphertext met de 'ki' sleutel
-    signature = hmac.new(ki, ciphertext, hashlib.sha1).digest()
-    checksum = signature[:12] # Pak de eerste 12 bytes
-
-    # 5. Combineer: [Ciphertext] + [Checksum]
-    return ciphertext + checksum
-
-
-def aes_cts_encrypt__(key, plaintext):
-    n = len(plaintext)
-    if n < 16: raise ValueError("Data te kort voor Kerberos AES")
-
-    # 1. Pad de plaintext naar het eerstvolgende 16-byte blok
-    padding_len = (16 - (n % 16)) % 16
-    padded_plain = plaintext + b'\x00' * padding_len
-
-    # 2. Gebruik standaard CBC met IV=0
+def aes_cts_encrypt(key: bytes, plain: bytes) -> bytes:
+    n = len(plain)  # 43 bytes
     iv = b'\x00' * 16
+    pad_len = 16 - (n % 16)
+    padded_plain = plain + b'\x00' * pad_len
+
+    # CBC encryptie (correct IV)
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
     encryptor = cipher.encryptor()
     full_cipher = encryptor.update(padded_plain) + encryptor.finalize()
 
-    if n == 16:
-        return full_cipher
+    c1 = full_cipher[0:16]
+    c2 = full_cipher[16:32]
+    c3 = full_cipher[32:48]
 
-    # 3. Ciphertext Stealing (CTS) Block Swapping
-    # Pak de laatste twee blokken van de CBC output
-    # Blok L-1 (volledig) en Blok L (volledig door padding)
-    last_two = full_cipher[-32:]
-    c_l_minus_1 = last_two[:16]
-    c_l = last_two[16:]
-
-    # 4. De output volgorde voor Kerberos:
-    # [Alle blokken behalve de laatste twee] + [Blok L] + [De eerste (n%16) bytes van Blok L-1]
-    # Bij 28 bytes: (n%16) is 12.
-    prefix = full_cipher[:-32]
-    return prefix + c_l + c_l_minus_1[:(n % 16) if (n % 16) != 0 else 16]
-
-
-def aes_cts_encrypt(key, plaintext):
-    n = len(plaintext)
-    iv = b'\x00' * 16
-
-    if n < 16:
-        raise ValueError("Plaintext moet minimaal 16 bytes zijn voor CTS")
-
-    # 1. Padding naar 16-byte blokken voor de initiële CBC run
-    padding_len = (16 - (n % 16)) % 16
-    padded_plain = plaintext + b'\x00' * padding_len
-
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-    encryptor = cipher.encryptor()
-    full_cipher = encryptor.update(padded_plain) + encryptor.finalize()
-
-    # 2. Als het exact een veelvoud van 16 is, doen we geen swap (standaard CBC)
-    if n % 16 == 0:
-        return full_cipher
-
-    # 3. De CTS Block Swap
-    # Pak de laatste twee blokken van de CBC output (Cn-1 en Cn)
-    # De output van Kerberos CTS is: [alle eerdere blokken] + Cn + [getrunceerde Cn-1]
-    last_two = full_cipher[-32:]
-    cn_minus_1 = last_two[:16]
-    cn = last_two[16:]
-
-    # De lengte van de 'gestolen' bytes is n % 16
-    return full_cipher[:-32] + cn + cn_minus_1[:n % 16]
-
-
-def impacket_style_cts_encrypt(key, plaintext):
-    iv = b'\x00' * 16
-    n = len(plaintext)
-
-    # Kerberos CTS requires the plaintext to be at least one block (16 bytes)
-    if n < 16:
-        raise Exception("Plaintext too short")
-
-    # 1. Basic CBC encryption of the padded blocks
-    padding_len = (16 - (n % 16)) % 16
-    padded_data = plaintext + b'\x00' * padding_len
-
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-    encryptor = cipher.encryptor()
-    ctext = encryptor.update(padded_data) + encryptor.finalize()
-
-    # 2. If it was a perfect multiple of 16, just return it
-    if n % 16 == 0:
-        return ctext
-
-    # 3. The CTS Swap (The part you are comparing)
-    # Kerberos RFC 3962 Swap:
-    # Take the last two blocks (C_{n-1} and C_n)
-    last_two = ctext[-32:]
-    cn_minus_1 = last_two[:16]
-    cn = last_two[16:]
-
-    # The output is: [all but last two] + [full Cn] + [truncated Cn-1]
-    # This ensures the ciphertext length is exactly 'n'
-    return ctext[:-32] + cn + cn_minus_1[:n % 16]
+    return c1 + c3 + c2[:n % 16]
 
 
 def aes_encrypt(key, data):
