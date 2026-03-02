@@ -1,5 +1,4 @@
 import hashlib
-import string
 import functools
 from typing import Callable, Tuple
 from .message_signature import NTLMMessageSignature
@@ -8,7 +7,6 @@ from .const import (
     NTLMSSP_NEGOTIATE_128,
     NTLMSSP_NEGOTIATE_56,
 )
-
 
 SIGN_CLIENT_SERVER = \
     b'session key to client-to-server signing key magic constant\x00'

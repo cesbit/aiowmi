@@ -4,6 +4,7 @@ from Crypto.Cipher import ARC4
 from .protocol import Protocol
 from .dcom import Dcom
 from .rpc.bind_ack import RpcBindAck
+from .kerberos.tgt import get_tgt
 from .ntlm.auth_challange import NTLMAuthChallenge
 from .ntlm.auth_authenticate import NTLMAuthAuthenticate
 from .ntlm.auth_negotiate import NTLMAuthNegotiate
@@ -49,16 +50,21 @@ class Connection:
             password: str,
             domain: str = '',
             port: int = 135,
+            kdc_host: Optional[str] = None,
+            kdc_port: int = 88,
             loop: Optional[asyncio.AbstractEventLoop] = None):
         self._host = host
         self._port = port
         self._username = username
         self._password = password
         self._domain = domain
+        self._kdc_host = kdc_host or self._host
+        self._kdc_port = kdc_port
         self._loop = asyncio.get_event_loop() if loop is None else loop
         self._protocol: Optional[Protocol] = None
         self._timeout: int = 10
         self._namespace: Optional[str] = None
+        self._tgt = None
 
     async def connect(self, timeout: int = 10):
         conn = self._loop.create_connection(
@@ -84,7 +90,7 @@ class Connection:
             return 'disconnected'
         return self._protocol.connection_info()
 
-    async def _bind(self, iid: bytes, proto: Protocol):
+    async def _bind_ntlm(self, iid: bytes, proto: Protocol):
         ntlm_auth_negotiate = NTLMAuthNegotiate()
 
         ntlm_negotiate_pkg = \
@@ -174,11 +180,22 @@ class Connection:
 
         proto.write(ntlm_auth_pkg)
 
+    async def negotiate_kerberos(self) -> Protocol:
+        if not self._domain:
+            raise Exception('domain is required for Kerberos authentication')
+
+        if self._tgt is None:
+            self._tgt = await get_tgt(self._username,
+                                      self._password,
+                                      self._domain,
+                                      self._kdc_host,
+                                      self._kdc_port)
+
     async def negotiate_ntlm(self) -> Protocol:
         proto = self._protocol
         proto._auth_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 
-        await self._bind(IID_IRemoteSCMActivator, proto)
+        await self._bind_ntlm(IID_IRemoteSCMActivator, proto)
 
         remote_create_instance = RemoteCreateInstance(
             CLSID_IWbemLevel1Login,
@@ -233,7 +250,7 @@ class Connection:
             interface.scm_reply_info_data.authn_hint,
             RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
 
-        await self._bind(IID_IWbemLevel1Login, proto)
+        await self._bind_ntlm(IID_IWbemLevel1Login, proto)
 
         return proto
 
