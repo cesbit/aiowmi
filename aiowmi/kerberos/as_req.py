@@ -321,8 +321,16 @@ def build_full_as_req(username, domain, base_key):
 
     # pa_ts_content = asn1_tag(1, b'\x02\x01\x02') + asn1_tag(2, b'\x04' + asn1_len(len(encodedEncryptedData)) + encodedEncryptedData)
 
+    cipher_octet_string = b'\x04' + asn1_len(len(final_payload)) + final_payload
 
-    enc_data_content = asn1_tag(0, b'\x02\x01\x12') + asn1_tag(2, final_payload)
+    # 3. Maak de EncryptedData content
+    # Tag [0] is etype, Tag [2] is de cipher (verpakt als Octet String!)
+    enc_data_content = (
+        asn1_tag(0, b'\x02\x01\x12') +
+        asn1_tag(2, cipher_octet_string)
+    )
+
+    # 4. Maak de Sequence
     encodedEncryptedData = asn1_seq(enc_data_content)
 
     # 2. Bouw de PA-DATA (padata-type [1] en padata-value [2])
