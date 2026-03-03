@@ -10,7 +10,9 @@ from cryptography.hazmat.primitives.hmac import HMAC
 from datetime import datetime, timezone
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ, tag, namedtype, char
-
+from Cryptodome.Cipher import AES
+from Cryptodome.Hash import HMAC, SHA1
+import struct
 
 def aes_cts_encrypt(key, plaintext):
     iv = b'\x00' * 16
@@ -174,19 +176,31 @@ def krb_string(s):
     return b'\x1b' + asn1_len(len(s)) + s.encode()
 
 
-def encrypt_authenticator(session_key, plain_text):
+
+def encrypt_authenticator(session_key_bytes, plain_text):
     usage = 7
-    ki = derive_key(session_key, usage, 0x55) # 0x55 = Integrity
-    ke = derive_key(session_key, usage, 0xaa) # 0xaa = Encryption
+    # Impacket deriveert Ki/Ke met deze specifieke constant-opbouw:
+    ki = derive_key(session_key_bytes, usage, 0x55)
+    ke = derive_key(session_key_bytes, usage, 0xAA)
 
     confounder = os.urandom(16)
+    basic_plaintext = confounder + plain_text
 
-    h = HMAC(ki, SHA1())
-    h.update(confounder + plain_text)
-    checksum = h.finalize()[:12] # Eerste 12 bytes
+    h = HMAC.new(ki, basic_plaintext, SHA1)
+    checksum = h.digest()[:12]
 
-    ciphertext = aes_cts_encrypt(ke, confounder + plain_text)
-    return ciphertext + checksum
+    aes = AES.new(ke, AES.MODE_CBC, b'\x00' * 16)
+    pad_len = (16 - (len(basic_plaintext) % 16)) % 16
+    padded_data = basic_plaintext + (b'\x00' * pad_len)
+    ctext = aes.encrypt(padded_data)
+
+    if len(basic_plaintext) > 16:
+        lastlen = len(basic_plaintext) % 16 or 16
+        final_ctext = ctext[:-32] + ctext[-16:] + ctext[-32:-16][:lastlen]
+    else:
+        final_ctext = ctext
+
+    return final_ctext + checksum
 
 
 def build_tgs_req(username, domain, session_key, key_type, ticket_bytes, target_service):
@@ -260,7 +274,7 @@ def build_tgs_req(username, domain, session_key, key_type, ticket_bytes, target_
     req_body_content = (
         asn1_tag(0, b'\x03\x05\x00\x40\x81\x00\x10') + # KDC Options
         asn1_tag(2, krb_string(domain.upper())) +      # Realm
-        sname_field +                                  # [3] sname (packet)
+        sname_field +                                  # [3] sname
         asn1_tag(5, b'\x18\x0f' + ts_str) +            # Till
         asn1_tag(7, b'\x02\x04' + struct.pack('>I', fixed_nonce)) + # Nonce
         asn1_tag(8, asn1_seq(etype_list))              # Etypes

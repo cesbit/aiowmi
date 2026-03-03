@@ -35,7 +35,6 @@ def _nfold(ba, nbytes):
             res[i] = s & 0xff
             carry = s >> 8
 
-        # Voeg carry weer toe aan het begin (1s complement)
         pos = n - 1
         while carry and pos >= 0:
             s = res[pos] + carry
@@ -45,21 +44,16 @@ def _nfold(ba, nbytes):
         return bytearray(res)
 
     slen = len(ba)
-    # Bereken LCM in bytes (niet bits, om complexiteit te verlagen)
     def lcm(a, b):
         return abs(a*b) // math.gcd(a, b)
 
     lcm_val = lcm(slen, nbytes)
-
-    # Maak de grote bitstream door telkens 13 bits te roteren
     big_str = bytearray()
     curr = bytearray(ba)
     for i in range(lcm_val // slen):
         big_str += curr
-        # De rotatie is ALTIJD 13 bits ten opzichte van de vorige stap
         curr = rotate_right(curr, 13)
 
-    # Snijd de grote stream in stukken van 'nbytes' en tel ze op
     parts = [big_str[i:i+nbytes] for i in range(0, len(big_str), nbytes)]
     return bytes(reduce(add_ones_complement, parts))
 
@@ -118,10 +112,8 @@ def derive_kerberos_keys(session_key, usage):
 
     # In Kerberos AES, 'constant' for DK label folded to blocksize (16 bytes).
     # For AES is the constant the label with padding.
-
     ke = aes_encrypt(session_key, label_enc.ljust(16, b'\x00'))
     ki = aes_encrypt(session_key, label_int.ljust(16, b'\x00'))
-
     return ke, ki
 
 
