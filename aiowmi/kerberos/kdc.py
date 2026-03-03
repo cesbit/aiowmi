@@ -10,9 +10,8 @@ async def send_kerberos_packet(packet_bytes: bytes,
 
     try:
         tcp_packet = struct.pack('>I', len(packet_bytes)) + packet_bytes
-        print(tcp_packet)
-
-        logger.debug(f"Sending {len(tcp_packet)} bytes...")
+        # print(tcp_packet)
+        # logger.debug(f"Sending {len(tcp_packet)} bytes...")
         writer.write(tcp_packet)
         await writer.drain()
 

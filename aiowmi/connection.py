@@ -5,6 +5,7 @@ from .protocol import Protocol
 from .dcom import Dcom
 from .rpc.bind_ack import RpcBindAck
 from .kerberos.tgt import get_tgt
+from .kerberos.tgs import get_tgs
 from .ntlm.auth_challange import NTLMAuthChallenge
 from .ntlm.auth_authenticate import NTLMAuthAuthenticate
 from .ntlm.auth_negotiate import NTLMAuthNegotiate
@@ -64,7 +65,8 @@ class Connection:
         self._protocol: Optional[Protocol] = None
         self._timeout: int = 10
         self._namespace: Optional[str] = None
-        self._tgt = None
+        self._tgt: Optional[tuple[bytes, bytes]] = None
+        self._tgs = None
 
     async def connect(self, timeout: int = 10):
         conn = self._loop.create_connection(
@@ -190,6 +192,14 @@ class Connection:
                                       self._domain,
                                       self._kdc_host,
                                       self._kdc_port)
+        if self._tgs is None:
+            self._tgs = await get_tgs(self._username,
+                                      self._domain,
+                                      self._host,
+                                      *self._tgt,
+                                      self._kdc_host,
+                                      self._kdc_port)
+
 
     async def negotiate_ntlm(self) -> Protocol:
         proto = self._protocol

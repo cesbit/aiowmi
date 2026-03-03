@@ -43,12 +43,11 @@ def aes_string_to_key(password, salt):
 
 
 async def get_tgt(username: str, password: str, domain: str,
-                  kdc_host: str, kdc_port: int = 88):
+                  kdc_host: str, kdc_port: int = 88) -> tuple[bytes, bytes]:
     as_req = build_as_req(username, domain)
     resp = await send_kerberos_packet(as_req, kdc_host, kdc_port)
     salt = extract_kerberos_salt(resp)
-    key = aes_string_to_key(password, salt)
-    full_as_req = build_full_as_req(username, domain, key)
-    resp = await send_kerberos_packet(full_as_req, kdc_host, kdc_port)
-    print(f'Response: {resp}')
-    assert 0
+    base_key = aes_string_to_key(password, salt)
+    full_as_req = build_full_as_req(username, domain, base_key)
+    as_res_bytes = await send_kerberos_packet(full_as_req, kdc_host, kdc_port)
+    return as_res_bytes, base_key
