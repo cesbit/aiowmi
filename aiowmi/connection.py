@@ -192,6 +192,7 @@ class Connection:
                                       self._domain,
                                       self._kdc_host,
                                       self._kdc_port)
+            print(self._tgt)
         if self._tgs is None:
             self._tgs = await get_tgs(self._username,
                                       self._domain,
@@ -199,7 +200,7 @@ class Connection:
                                       *self._tgt,
                                       self._kdc_host,
                                       self._kdc_port)
-
+            print(self._tgs)
 
     async def negotiate_ntlm(self) -> Protocol:
         proto = self._protocol

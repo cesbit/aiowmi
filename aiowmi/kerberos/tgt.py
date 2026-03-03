@@ -25,7 +25,11 @@ def nfold_for_kerberos():
 
 
 def aes_string_to_key(password, salt):
-    tkey = hashlib.pbkdf2_hmac('sha1', password.encode(), salt.encode(), 4096, 32)
+    tkey = hashlib.pbkdf2_hmac('sha1',
+                               password.encode(),
+                               salt.encode(),
+                               4096,
+                               32)
     constant = nfold_for_kerberos()
 
     # Gebruik AES-256 CBC met IV=0

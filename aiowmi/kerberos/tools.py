@@ -44,6 +44,7 @@ def _nfold(ba, nbytes):
         return bytearray(res)
 
     slen = len(ba)
+
     def lcm(a, b):
         return abs(a*b) // math.gcd(a, b)
 
