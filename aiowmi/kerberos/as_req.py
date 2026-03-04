@@ -5,7 +5,7 @@ import os
 import hashlib
 from datetime import datetime, timedelta, timezone
 from .tools import aes_cts_encrypt, derive_key
-from .asn1 import asn1_len, asn1_seq, asn1_tag
+from .asn1 import asn1_len, asn1_seq, asn1_tag, krb_string
 
 
 def build_as_req(username: str, domain: str, pa_enc: bytes = b'') -> bytes:
@@ -163,9 +163,6 @@ def build_full_as_req(username, domain, base_key):
     domain_caps = domain.upper()
     nonce = random.getrandbits(31)
     till = (now + timedelta(days=1)).strftime("%Y%m%d%H%M%SZ").encode()
-
-    def krb_string(s):
-        return b'\x1b' + asn1_len(len(s)) + s.encode()
 
     cname_content = (
         asn1_tag(0, b'\x02\x01\x01') +

@@ -1,0 +1,23 @@
+class RC4():
+    def __init__(self, key):
+        bkey = bytearray(key)
+        j = 0
+        self.state = bytearray(range(256))
+        for i in range(256):
+            j = (j + self.state[i] + bkey[i % len(key)]) & 0xff
+            self.state[i], self.state[j] = self.state[j], self.state[i]
+
+    def encrypt(self, data):
+        i = j = 0
+        out = bytearray()
+        for char in bytearray(data):
+            i = (i+1) & 0xff
+            j = (j+self.state[i]) & 0xff
+            self.state[i], self.state[j] = self.state[j], self.state[i]
+            out.append(
+                char ^ self.state[(self.state[i] + self.state[j]) & 0xff])
+
+        return bytes(out)
+
+    def decrypt(self, data):
+        return self.encrypt(data)

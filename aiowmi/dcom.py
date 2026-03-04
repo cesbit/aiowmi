@@ -6,12 +6,15 @@ from .ntlm.auth_negotiate import NTLMAuthNegotiate
 from .rpc.auth_verifier_co import RpcAuthVerifierCo
 from .rpc.bind import RpcBind
 from .rpc.bind_ack import RpcBindAck
+from .rpc.bind_nac import RpcBindNak
 from .rpc.common import RpcCommon
 from .rpc.const import MSRPC_AUTH3
 from .rpc.const import MSRPC_BINDACK
+from .rpc.const import MSRPC_BINDNAK
 from .rpc.const import MSRPC_FAULT
 from .rpc.const import MSRPC_RESPONSE
 from .rpc.const import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+from .rpc.const import RPC_C_AUTHN_GSS_KERBEROS
 from .rpc.const import RPC_C_AUTHN_WINNT
 from .rpc.cont_elem import RpcContElem
 from .rpc.fault import RpcFault
@@ -63,6 +66,33 @@ class Dcom:
         data = rpc_bind.get_data()
         return data
 
+    def get_bind_kerberos_pkg(
+            self,
+            iid: bytes,
+            ap_req_bytes: bytes,
+            auth_level: int):
+        rpc_bind = RpcBind()
+
+        rpc_cont_elem = RpcContElem(iid)
+        rpc_cont_elem.add_transfer_syntax(NDR_TransferSyntaxIdentifier)
+        rpc_bind.add_cont_elem(rpc_cont_elem)
+
+        auth_pad_length = pad4(rpc_bind.freeze_context())
+
+        auth_verifier, auth_length = RpcAuthVerifierCo.make(
+            RPC_C_AUTHN_GSS_KERBEROS,
+            auth_level,                 # RPC_C_AUTHN_LEVEL_PKT_PRIVACY (6)
+            auth_pad_length,
+            0,                          # auth_context_id
+            ap_req_bytes                # AP-REQ bytes
+        )
+
+        rpc_bind.set_auth_verifier(auth_verifier, auth_length)
+        self.set_call_id(rpc_bind)
+
+        data = rpc_bind.get_data()
+        return data
+
     @staticmethod
     def get_authenticate_ntlm_pkg(
             ntlm_auth_authenticate: NTLMAuthAuthenticate,
@@ -87,6 +117,7 @@ class Dcom:
 
     _DCOM_RPC_MAP = {
         MSRPC_BINDACK: RpcBindAck,
+        MSRPC_BINDNAK: RpcBindNak,
         MSRPC_RESPONSE: RpcResponse,
         MSRPC_FAULT: RpcFault,
     }

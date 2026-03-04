@@ -22,5 +22,16 @@ def asn1_len(n: int) -> bytes:
     return struct.pack('B', 0x80 | len(l_bytes)) + bytes(l_bytes)
 
 
+def asn1_len_long(length):
+    if length < 128:
+        return bytes([length])
+    else:
+        return b'\x81' + bytes([length & 0xff])
+
+
 def asn1_seq(content: bytes) -> bytes:
     return b'\x30' + asn1_len(len(content)) + content
+
+
+def krb_string(s):
+    return b'\x1b' + asn1_len(len(s)) + s.encode()

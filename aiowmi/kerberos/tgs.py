@@ -1,17 +1,11 @@
-import os
 import struct
-from .asn1 import asn1_len, asn1_tag, asn1_seq
+from .asn1 import asn1_len, asn1_tag, asn1_seq, krb_string
 from .kdc import send_kerberos_packet
-from .tools import derive_key
-from cryptography.hazmat.backends import default_backend
+from .tools import decrypt_kerberos_aes_cts, encrypt_kerberos_aes_cts
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives.hashes import SHA1
-from cryptography.hazmat.primitives.hmac import HMAC
 from datetime import datetime, timezone
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ, tag, namedtype, char
-from Cryptodome.Cipher import AES
-from Cryptodome.Hash import HMAC, SHA1
 import struct
 
 
@@ -38,51 +32,6 @@ def aes_cts_encrypt(key, plaintext):
     c_last = full_cipher[last_block_start:]
 
     return full_cipher[:prev_block_start] + c_last + c_prev[:n % 16]
-
-
-def decrypt_kerberos_aes_cts(ciphertext, key):
-    backend = default_backend()
-    block_size = 16
-    iv = b'\x00' * block_size
-
-    if len(ciphertext) < block_size:
-        raise ValueError("Ciphertext needs to be at least one block size")
-
-    if len(ciphertext) % block_size == 0:
-        cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
-        decryptor = cipher.decryptor()
-        return decryptor.update(ciphertext) + decryptor.finalize()
-
-    n_blocks = (len(ciphertext) + block_size - 1) // block_size
-
-    decrypted_prev = b''
-    if n_blocks > 2:
-        prev_blocks = ciphertext[:(n_blocks - 2) * block_size]
-        cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
-        decryptor = cipher.decryptor()
-        decrypted_prev = decryptor.update(prev_blocks) + decryptor.finalize()
-        iv = prev_blocks[-block_size:]
-
-    cn_1 = ciphertext[
-        (n_blocks - 2) * block_size:
-        (n_blocks - 1) * block_size]
-    cn = ciphertext[(n_blocks - 1) * block_size:]
-    last_block_len = len(cn)
-
-    cipher_ecb = Cipher(algorithms.AES(key), modes.ECB(), backend=backend)
-    decryptor_ecb = cipher_ecb.decryptor()
-    dn_1 = decryptor_ecb.update(cn_1) + decryptor_ecb.finalize()
-
-    stolen_bytes = dn_1[last_block_len:]
-    cn_full = cn + stolen_bytes
-
-    decryptor_ecb = cipher_ecb.decryptor()
-    dn = decryptor_ecb.update(cn_full) + decryptor_ecb.finalize()
-
-    pn_actual = bytes(a ^ b for a, b in zip(dn, iv))
-    pn_1_actual = bytes(a ^ b for a, b in zip(dn_1[:last_block_len], cn))
-
-    return decrypted_prev + pn_actual + pn_1_actual
 
 
 class AS_REP(univ.Sequence):
@@ -158,45 +107,12 @@ def get_session_key(as_rep_bytes: bytes, base_key: bytes) -> bytes:
         asn1Spec=EncryptedData()
     )
 
-    cipher_bytes = bytes(enc_data_obj['cipher'])
-    ciphertext = cipher_bytes[:-12]
-    _hmac = cipher_bytes[-12:]
+    cipher_blob = bytes(enc_data_obj['cipher'])
 
-    ke = derive_key(base_key, 3, 0xAA)
-
-    decrypted = decrypt_kerberos_aes_cts(ciphertext, ke)
+    decrypted = decrypt_kerberos_aes_cts(base_key, 3, cipher_blob)
     session_key = read_session_key(decrypted)
 
     return session_key
-
-
-def krb_string(s):
-    return b'\x1b' + asn1_len(len(s)) + s.encode()
-
-
-def encrypt_authenticator(session_key_bytes, plain_text):
-    usage = 7
-    ki = derive_key(session_key_bytes, usage, 0x55)
-    ke = derive_key(session_key_bytes, usage, 0xAA)
-
-    confounder = os.urandom(16)
-    basic_plaintext = confounder + plain_text
-
-    h = HMAC.new(ki, basic_plaintext, SHA1)
-    checksum = h.digest()[:12]
-
-    aes = AES.new(ke, AES.MODE_CBC, b'\x00' * 16)
-    pad_len = (16 - (len(basic_plaintext) % 16)) % 16
-    padded_data = basic_plaintext + (b'\x00' * pad_len)
-    ctext = aes.encrypt(padded_data)
-
-    if len(basic_plaintext) > 16:
-        lastlen = len(basic_plaintext) % 16 or 16
-        final_ctext = ctext[:-32] + ctext[-16:] + ctext[-32:-16][:lastlen]
-    else:
-        final_ctext = ctext
-
-    return final_ctext + checksum
 
 
 def build_tgs_req(username: str,
@@ -225,7 +141,7 @@ def build_tgs_req(username: str,
 
     inner_seq = b'\x30' + asn1_len(len(auth_body)) + auth_body
     auth_plain = b'\x62' + asn1_len(len(inner_seq)) + inner_seq
-    final_cipher = encrypt_authenticator(session_key, auth_plain)
+    final_cipher = encrypt_kerberos_aes_cts(session_key, 7, auth_plain)
     etype_part = b'\xa0\x03\x02\x01\x12'  # [0] etype AES256
 
     cipher_octet = b'\x04' + asn1_len(len(final_cipher)) + final_cipher
@@ -310,7 +226,7 @@ def build_tgs_req(username: str,
     return packet
 
 
-def extract_ticket_properly(as_rep_bytes):
+def extract_ticket(as_rep_bytes):
     tag_5_idx = as_rep_bytes.find(b'\xa5')
     if tag_5_idx == -1:
         raise ValueError("Tag [5] (Ticket container) not found!")
@@ -324,18 +240,43 @@ def extract_ticket_properly(as_rep_bytes):
     return ticket_payload
 
 
+def get_service_key(resp_bytes: bytes,
+                    session_key: bytes) -> tuple[bytes, bytes]:
+    raw_obj, _ = decoder.decode(resp_bytes)
+    enc_part = raw_obj.getComponentByPosition(5)
+
+    cipher_blob = None
+    for i in range(len(enc_part)):
+        comp = enc_part.getComponentByPosition(i)
+        if isinstance(comp, univ.OctetString):
+            cipher_blob = bytes(comp)
+            break
+
+    if not cipher_blob:
+        cipher_blob = bytes(enc_part[2])
+
+    decrypted_raw = decrypt_kerberos_aes_cts(session_key, 8, cipher_blob)
+    payload = decrypted_raw[16:]
+    inner_obj, _ = decoder.decode(payload)
+
+    key_sequence = inner_obj.getComponentByPosition(0)
+    service_session_key = bytes(key_sequence.getComponentByPosition(1))
+
+    ticket = raw_obj.getComponentByPosition(4)
+    ticket_bytes = encoder.encode(ticket)
+    return ticket_bytes, service_session_key
+
+
 async def get_tgs(username: str, domain: str, host: str,
                   as_rep_bytes: bytes, base_key: bytes,
                   kdc_host: str, kdc_port: int = 88) -> bytes:
     tgs_session_key = get_session_key(as_rep_bytes, base_key)
-    ticket_bytes = extract_ticket_properly(as_rep_bytes)
+    tgs_ticket = extract_ticket(as_rep_bytes)
     tgs_req = build_tgs_req(username,
                             domain,
                             tgs_session_key,
-                            ticket_bytes,
+                            tgs_ticket,
                             ("host", host))
     as_res_bytes = await send_kerberos_packet(tgs_req, kdc_host, kdc_port)
-    print(f"[+] TGS Sessoin key: {tgs_session_key.hex()}")
-    print(f"[+] Response: {as_res_bytes.hex()}")
-
-    assert 0
+    ticket, service_key = get_service_key(as_res_bytes, tgs_session_key)
+    return ticket, service_key

@@ -1,10 +1,14 @@
 import functools
+import os
 import hashlib
 import hmac
 import math
 import struct
 from functools import reduce
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from Cryptodome.Cipher import AES
+from Cryptodome.Hash import HMAC, SHA1, MD5
+from .rc4 import RC4
 
 
 def _nfold(ba, nbytes):
@@ -90,6 +94,115 @@ def aes_cts_encrypt(key: bytes, plain: bytes) -> bytes:
     c3 = full_cipher[32:48]
 
     return c1 + c3 + c2[:n % 16]
+
+
+def decrypt_kerberos_aes_cts(key: bytes, usage: int, cipher: bytes) -> bytes:
+    ciphertext = cipher[:-12]
+    expected_hmac = cipher[-12:]
+
+    ki = derive_key(key, usage, 0x55)
+    ke = derive_key(key, usage, 0xAA)
+
+    n = len(ciphertext)
+    block_size = 16
+
+    aes = AES.new(ke, AES.MODE_ECB)
+
+    if n % block_size == 0:
+        aes_cbc = AES.new(ke, AES.MODE_CBC, b'\x00' * block_size)
+        plaintext_with_confounder = aes_cbc.decrypt(ciphertext)
+    else:
+        m = n // block_size
+        last_blocks_len = n % block_size
+
+        iv = b'\x00' * block_size
+        plaintext_with_confounder = b''
+
+        for i in range(m - 1):
+            block = ciphertext[i*block_size: (i+1)*block_size]
+            dec = aes.decrypt(block)
+            plaintext_with_confounder += \
+                bytes(a ^ b for a, b in zip(dec, iv))
+            iv = block
+
+        cn_minus_1 = ciphertext[(m-1)*block_size: m*block_size]
+        cn = ciphertext[m*block_size:]
+
+        dec_intermediate = aes.decrypt(cn_minus_1)
+
+        pn = bytes(
+            a ^ b for a, b in zip(dec_intermediate[:last_blocks_len], cn))
+
+        stolen_bytes = dec_intermediate[last_blocks_len:]
+        full_block_to_decrypt = cn + stolen_bytes
+
+        dec_pn_minus_1 = aes.decrypt(full_block_to_decrypt)
+        pn_minus_1 = bytes(a ^ b for a, b in zip(dec_pn_minus_1, iv))
+
+        plaintext_with_confounder += pn_minus_1 + pn
+
+    h = HMAC.new(ki, plaintext_with_confounder, SHA1)
+    if h.digest()[:12] != expected_hmac:
+        raise ValueError("Integrity check failed: HMAC mismatch")
+
+    return plaintext_with_confounder
+
+
+def encrypt_kerberos_aes_cts(session_key: bytes,
+                             usage: int,
+                             plain_text: bytes):
+    ki = derive_key(session_key, usage, 0x55)
+    ke = derive_key(session_key, usage, 0xAA)
+
+    confounder = os.urandom(16)
+    basic_plaintext = confounder + plain_text
+
+    h = HMAC.new(ki, basic_plaintext, SHA1)
+    checksum = h.digest()[:12]
+
+    aes = AES.new(ke, AES.MODE_CBC, b'\x00' * 16)
+    n = len(basic_plaintext)
+
+    if n % 16 == 0:
+        final_ctext = aes.encrypt(basic_plaintext)
+    else:
+        pad_len = 16 - (n % 16)
+        padded_data = basic_plaintext + b'\x00' * pad_len
+        ctext = aes.encrypt(padded_data)
+
+        last_full_block = ctext[-32:-16]
+        truncated_block = ctext[-16:]
+
+        final_ctext = (
+            ctext[:-32] +
+            truncated_block +
+            last_full_block[:16-pad_len]
+        )
+
+    return final_ctext + checksum
+
+
+def encrypt_kerberos_rc4(session_key, usage, plaintext):
+    # checked, 100% correct
+    confounder = os.urandom(8)
+    data_to_encrypt = confounder + plaintext
+
+    usage_bytes = struct.pack('<I', usage)
+    k1 = HMAC.new(session_key, usage_bytes, MD5).digest()
+
+    checksum = HMAC.new(k1, data_to_encrypt, MD5).digest()
+    k3 = HMAC.new(k1, checksum, MD5).digest()
+
+    cipher = RC4(k3)
+    encrypted_data = cipher.encrypt(data_to_encrypt)
+
+    return checksum + encrypted_data
+
+#####################################################################
+#
+# All above is tested and working, below needs testing/work
+#
+#####################################################################
 
 
 def aes_encrypt(key, data):
