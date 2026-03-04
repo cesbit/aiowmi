@@ -46,7 +46,7 @@ def decrypt_kerberos_aes_cts(ciphertext, key):
     iv = b'\x00' * block_size
 
     if len(ciphertext) < block_size:
-        raise ValueError("Ciphertext moet minimaal één blok lang zijn")
+        raise ValueError("Ciphertext needs to be at least one block size")
 
     if len(ciphertext) % block_size == 0:
         cipher = Cipher(algorithms.AES(key), modes.CBC(iv), backend=backend)
@@ -327,14 +327,15 @@ def extract_ticket_properly(as_rep_bytes):
 async def get_tgs(username: str, domain: str, host: str,
                   as_rep_bytes: bytes, base_key: bytes,
                   kdc_host: str, kdc_port: int = 88) -> bytes:
-    session_key = get_session_key(as_rep_bytes, base_key)
+    tgs_session_key = get_session_key(as_rep_bytes, base_key)
     ticket_bytes = extract_ticket_properly(as_rep_bytes)
     tgs_req = build_tgs_req(username,
                             domain,
-                            session_key,
+                            tgs_session_key,
                             ticket_bytes,
                             ("host", host))
     as_res_bytes = await send_kerberos_packet(tgs_req, kdc_host, kdc_port)
+    print(f"[+] TGS Sessoin key: {tgs_session_key.hex()}")
     print(f"[+] Response: {as_res_bytes.hex()}")
 
     assert 0
