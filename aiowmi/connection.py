@@ -229,8 +229,6 @@ class Connection:
 
     async def _bind_kerberos(self, iid: bytes, proto: Protocol):
         ticket, service_session_key = self._tgs
-        # ticket and service_session_key are equal in length [CHECK]
-
         ap_req = build_ap_req(self._username,
                               self._domain,
                               ticket, service_session_key)

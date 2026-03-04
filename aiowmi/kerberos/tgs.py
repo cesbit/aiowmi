@@ -264,6 +264,16 @@ def get_service_key(resp_bytes: bytes,
 
     ticket = raw_obj.getComponentByPosition(4)
     ticket_bytes = encoder.encode(ticket)
+
+    WRAPPERS = [0xa3, 0xa4, 0xa5]
+
+    if ticket_bytes[0] in WRAPPERS:
+        try:
+            ticket_start = ticket_bytes.index(b'\x61', 0, 10)
+            ticket_bytes = ticket_bytes[ticket_start:]
+        except ValueError:
+            pass
+
     return ticket_bytes, service_session_key
 
 
