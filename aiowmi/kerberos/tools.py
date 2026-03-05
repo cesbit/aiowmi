@@ -313,3 +313,9 @@ def sign_func_kerberos(session_key):
         return header + checksum
 
     return _kerberos_signer
+
+
+def int_to_min_bytes(n):
+    """Convert int to mininal big-endian byte-array."""
+    if n == 0: return b'\x00'
+    return n.to_bytes((n.bit_length() + 7) // 8, 'big')

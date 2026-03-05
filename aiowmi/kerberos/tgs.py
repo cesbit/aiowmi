@@ -2,6 +2,7 @@ import struct
 from .asn1 import asn1_len, asn1_tag, asn1_seq, krb_string
 from .kdc import send_kerberos_packet
 from .tools import decrypt_kerberos_aes_cts, encrypt_kerberos_aes_cts
+from .tools import int_to_min_bytes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from datetime import datetime, timezone
 from pyasn1.codec.der import decoder, encoder
@@ -128,14 +129,14 @@ def build_tgs_req(username: str,
         asn1_tag(1, asn1_seq(krb_string(username)))
     )
 
-    cusec_val = now.microsecond
-    cusec_bytes = asn1_tag(4, b'\x02\x03' + struct.pack('>I', cusec_val)[1:])
+    cusec_val = int_to_min_bytes(now.microsecond)
+    cusec_content = b'\x02' + asn1_len(len(cusec_val)) + cusec_val
 
     auth_body = (
         asn1_tag(0, b'\x02\x01\x05') +             # [0] pvno
         asn1_tag(1, krb_string(domain.upper())) +  # [1] crealm
         asn1_tag(2, asn1_seq(cname_content)) +     # [2] cname
-        cusec_bytes +                              # [4] cusec (tag a4)
+        asn1_tag(4, cusec_content) +               # [4] cusec (tag a4)
         asn1_tag(5, b'\x18\x0f' + ts_str)          # [5] ctime (tag a5)
     )
 
