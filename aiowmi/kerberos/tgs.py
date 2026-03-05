@@ -211,8 +211,8 @@ def build_tgs_req(username: str,
     )
 
     final_content = (
-        b'\xa1\x03\x02\x01\x05' +                # [1] pvno
-        b'\xa2\x03\x02\x01\x0c' +                # [2] msg-type (12 = TGS-REQ)
+        asn1_tag(1, b'\x02\x01\x05') +           # [1] pvno (v5)
+        asn1_tag(2, b'\x02\x01\x0c') +           # [2] msg-type (12 = TGS-REQ)
         padata_field +                           # [3] padata (a3...)
         req_body_field                           # [4] req-body (a4...)
     )
