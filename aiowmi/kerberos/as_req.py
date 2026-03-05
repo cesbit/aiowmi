@@ -71,7 +71,6 @@ def build_as_req(username: str, domain: str, pa_enc: bytes = b'') -> bytes:
 
     # kdc-options: Forwardable, Proxiable, Renewable, Canonicalize
     kdc_options = b'\x03\x05\x00\x50\x80\x00\x00'
-    # used to be b'\x03\x05\x00\x40\x81\x00\x10'
 
     req_body_fields = [
 
@@ -94,7 +93,7 @@ def build_as_req(username: str, domain: str, pa_enc: bytes = b'') -> bytes:
         req_body_content
     )
 
-    # --- AS-REQ ---
+    # AS_REQ
     as_req_fields = [
         asn1_tag(1, b'\x02\x01\x05'),  # pvno
         asn1_tag(2, b'\x02\x01\x0a'),  # msg-type

@@ -153,13 +153,13 @@ def build_tgs_req(username: str,
         etype_part +
         cipher_part
     )
-    auth_field = b'\xa4' + asn1_len(len(auth_enc_seq)) + auth_enc_seq
+
     ap_req_body = (
-        b'\xa0\x03\x02\x01\x05' +                          # [0] pvno
-        b'\xa1\x03\x02\x01\x0e' +                          # [1] msg-type (14)
-        b'\xa2\x07\x03\x05\x00\x00\x00\x00\x00' +          # [2] ap-options
-        b'\xa3' + asn1_len(len(ticket_bytes)) + ticket_bytes +  # [3] ticket
-        auth_field                                         # [4] authenticator
+        asn1_tag(0, b'\x02\x01\x05') +                    # [0] pvno (v5)
+        asn1_tag(1, b'\x02\x01\x0e') +                    # [1] msg-type [14]
+        asn1_tag(2, b'\x03\x05\x00\x00\x00\x00\x00') +    # [2] ap-options
+        asn1_tag(3, ticket_bytes) +                       # [3] ticket
+        asn1_tag(4, auth_enc_seq)                         # [4] authenticator
     )
 
     ap_req_sequence = b'\x30' + asn1_len(len(ap_req_body)) + ap_req_body

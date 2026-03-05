@@ -20,7 +20,7 @@ def wrap_gss_kerberos(ap_req_bytes):
     neg_token_seq = b'\x30' + asn1_len(len(neg_token_body)) + neg_token_body
     neg_token_init = asn1_tag(0, neg_token_seq)
 
-    # Finale Application 0 (0x60) wrapper
+    # Application 0 (0x60) wrapper
     final_body = OID_SPNEGO + neg_token_init
     return b'\x60' + asn1_len(len(final_body)) + final_body
 
@@ -62,7 +62,7 @@ def build_ap_req(username: str,
         asn1_tag(7, b'\x02\x01\x00')
     )
 
-    # Encryptie
+    # Encrypt authenticator
     auth_inner = b'\x30' + asn1_len(len(auth_body)) + auth_body
     auth_asn1 = b'\x62' + asn1_len(len(auth_inner)) + auth_inner
     enc_auth = encrypt_kerberos_rc4(service_session_key, 11, auth_asn1)
