@@ -1,4 +1,5 @@
 import struct
+import random
 from .asn1 import asn1_len, asn1_tag, asn1_seq, krb_string
 from .kdc import send_kerberos_packet
 from .tools import decrypt_kerberos_aes_cts, encrypt_kerberos_aes_cts
@@ -192,21 +193,16 @@ def build_tgs_req(username: str,
         asn1_tag(1, sname_strings_seq)   # strings
     )
 
-    sname_field = (
-        b'\xa3' +
-        asn1_len(len(asn1_seq(sname_inner_content))) +
-        asn1_seq(sname_inner_content)
-    )
     etype_list = b'\x02\x01\x17\x02\x01\x10\x02\x01\x03\x02\x01\x12'
-    fixed_nonce = 123456789
+    nonce = random.getrandbits(31)
 
     req_body_content = (
-        asn1_tag(0, b'\x03\x05\x00\x40\x81\x00\x10') +  # KDC Options
-        asn1_tag(2, krb_string(domain.upper())) +       # Realm
-        sname_field +                                   # [3] sname
-        asn1_tag(5, b'\x18\x0f' + ts_str) +             # Till
-        asn1_tag(7, b'\x02\x04' + struct.pack('>I', fixed_nonce)) +  # Nonce
-        asn1_tag(8, asn1_seq(etype_list))               # Etypes
+        asn1_tag(0, b'\x03\x05\x00\x40\x81\x00\x10') +          # KDC Options
+        asn1_tag(2, krb_string(domain.upper())) +               # Realm
+        asn1_tag(3, asn1_seq(sname_inner_content)) +            # [3] sname
+        asn1_tag(5, b'\x18\x0f' + ts_str) +                     # Till
+        asn1_tag(7, b'\x02\x04' + struct.pack('>I', nonce)) +   # Nonce
+        asn1_tag(8, asn1_seq(etype_list))                       # Etypes
     )
     req_body_field = (
         b'\xa4' +
