@@ -134,17 +134,17 @@ def build_tgs_req(username: str,
     cusec_content = b'\x02' + asn1_len(len(cusec_val)) + cusec_val
 
     auth_body = (
-        asn1_tag(0, b'\x02\x01\x05') +             # [0] pvno
-        asn1_tag(1, krb_string(domain.upper())) +  # [1] crealm
-        asn1_tag(2, asn1_seq(cname_content)) +     # [2] cname
-        asn1_tag(4, cusec_content) +               # [4] cusec (tag a4)
-        asn1_tag(5, b'\x18\x0f' + ts_str)          # [5] ctime (tag a5)
+        asn1_tag(0, b'\x02\x01\x05') +              # [0] pvno
+        asn1_tag(1, krb_string(domain.upper())) +   # [1] crealm
+        asn1_tag(2, asn1_seq(cname_content)) +      # [2] cname
+        asn1_tag(4, cusec_content) +                # [4] cusec (tag a4)
+        asn1_tag(5, b'\x18\x0f' + ts_str)           # [5] ctime (tag a5)
     )
 
     inner_seq = b'\x30' + asn1_len(len(auth_body)) + auth_body
     auth_plain = b'\x62' + asn1_len(len(inner_seq)) + inner_seq
     final_cipher = encrypt_kerberos_aes_cts(session_key, 7, auth_plain)
-    etype_part = b'\xa0\x03\x02\x01\x12'  # [0] etype AES256
+    etype_part = b'\xa0\x03\x02\x01\x12'            # [0] etype AES256
 
     cipher_octet = b'\x04' + asn1_len(len(final_cipher)) + final_cipher
     cipher_part = b'\xa2' + asn1_len(len(cipher_octet)) + cipher_octet
@@ -168,12 +168,10 @@ def build_tgs_req(username: str,
     encoded_ap_req = b'\x6e' + asn1_len(len(ap_req_sequence)) + ap_req_sequence
     padata_value = b'\x04' + asn1_len(len(encoded_ap_req)) + encoded_ap_req
 
-    # padata-item (padata-type 1 = PA-TGS-REQ)
     padata_item_content = (
-        b'\xa1\x03\x02\x01\x01' +  # [1] padata-type (PA-TGS-REQ)
-        b'\xa2' + asn1_len(len(padata_value)) + padata_value
+        asn1_tag(1, b'\x02\x01\x01') +  # [1] padata-type (PA-TGS-REQ)
+        asn1_tag(2, padata_value)
     )
-
     padata_item = (
         b'\x30' +
         asn1_len(len(padata_item_content)) +
