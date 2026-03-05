@@ -15,6 +15,7 @@ from .rpc.const import MSRPC_FAULT
 from .rpc.const import MSRPC_RESPONSE
 from .rpc.const import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from .rpc.const import RPC_C_AUTHN_GSS_KERBEROS
+from .rpc.const import RPC_C_AUTHN_GSS_NEGOTIATE
 from .rpc.const import RPC_C_AUTHN_WINNT
 from .rpc.cont_elem import RpcContElem
 from .rpc.fault import RpcFault
@@ -80,10 +81,10 @@ class Dcom:
         auth_pad_length = pad4(rpc_bind.freeze_context())
 
         auth_verifier, auth_length = RpcAuthVerifierCo.make(
-            RPC_C_AUTHN_GSS_KERBEROS,
+            RPC_C_AUTHN_GSS_NEGOTIATE,
             auth_level,                 # RPC_C_AUTHN_LEVEL_PKT_PRIVACY (6)
             auth_pad_length,
-            0,                          # auth_context_id
+            0x0001357f,                 # auth_context_id
             ap_req_bytes                # AP-REQ bytes
         )
 

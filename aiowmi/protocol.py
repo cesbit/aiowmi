@@ -64,8 +64,7 @@ class Protocol(asyncio.Protocol):
         buffers for each request since parts of the requests may be received
         within diffrent package fragments.
         """
-        # print('RECV!!')
-        # print(data)
+        print(f'RECV!!: ', data)
         if self._buf is None:
             data = self._tmp + data
 

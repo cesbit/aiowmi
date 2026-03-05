@@ -49,6 +49,7 @@ class RpcBindAck(RpcBaseResp):
     BIND_ACK_FMT_SIZE = struct.calcsize(BIND_ACK_FMT)
 
     def __init__(self, dcom: Dcom, rpc_common: RpcCommon, data: bytes):
+        print(f'[D] BIND ACK: {data.hex()}')
         offset = RpcCommon.COMMON_SIZE
         (
             max_xmit_frag,
