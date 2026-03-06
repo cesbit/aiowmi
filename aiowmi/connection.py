@@ -7,7 +7,7 @@ from .dcom import Dcom
 from .rpc.bind_ack import RpcBindAck
 from .kerberos.tgt import get_tgt
 from .kerberos.tgs import get_tgs
-from .kerberos.ap_req import build_ap_req, wrap_gss_kerberos
+from .kerberos.ap_req import build_ap_req, wrap_gss_kerberos, get_active_key
 from .ntlm.auth_challange import NTLMAuthChallenge
 from .ntlm.auth_authenticate import NTLMAuthAuthenticate
 from .ntlm.auth_negotiate import NTLMAuthNegotiate
@@ -239,8 +239,17 @@ class Connection:
             proto._auth_level,
         )
         rpc_bind_ack = await proto.get_dcom_response(bind_pkg)
+        active_key, seq_number = get_active_key(rpc_bind_ack.auth.auth_value,
+                                                service_session_key)
 
-        print(rpc_bind_ack.auth)
+        print('GEVONDEN: ', active_key, seq_number)
+
+        from .kerberos.krb5_pdu import build_msrpc_auth3_token
+        context_pdu = build_msrpc_auth3_token(active_key, seq_number)
+        print(context_pdu)
+
+        # res = await proto.get_dcom_response(context_pdu)
+        # print(res)
         assert 0
 
         if proto._auth_level >= RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:

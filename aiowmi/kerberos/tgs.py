@@ -1,9 +1,11 @@
 import struct
 import random
-from .asn1 import asn1_len, asn1_tag, asn1_seq, krb_string
+from .asn1 import (
+    asn1_len, asn1_tag, asn1_seq, asn1_gs, asn1_os, asn1_int, asn1_gt
+)
 from .kdc import send_kerberos_packet
 from .tools import decrypt_kerberos_aes_cts, encrypt_kerberos_aes_cts
-from .tools import int_to_min_bytes
+from .tools import read_session_key
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from datetime import datetime, timezone
 from pyasn1.codec.der import decoder, encoder
@@ -82,24 +84,6 @@ class EncryptedData(univ.Sequence):
     )
 
 
-def read_session_key(data: bytes) -> bytes:
-    payload = data[16:]
-    as_rep_part, _ = decoder.decode(payload)
-    key_container_bytes = encoder.encode(as_rep_part[0])
-    inner_key_seq, _ = decoder.decode(key_container_bytes)
-
-    key_type_bytes = encoder.encode(inner_key_seq[0])
-    key_value_bytes = encoder.encode(inner_key_seq[1])
-
-    key_type_obj, _ = decoder.decode(key_type_bytes)
-    key_value_obj, _ = decoder.decode(key_value_bytes)
-
-    session_key = bytes(key_value_obj.asOctets())
-    _key_type = int(key_type_obj)
-
-    return session_key
-
-
 def get_session_key(as_rep_bytes: bytes, base_key: bytes) -> bytes:
     as_rep_obj, _ = decoder.decode(as_rep_bytes, asn1Spec=AS_REP())
 
@@ -126,107 +110,89 @@ def build_tgs_req(username: str,
     ts_str = now.strftime("%Y%m%d%H%M%SZ").encode()
 
     cname_content = (
-        asn1_tag(0, b'\x02\x01\x01') +
-        asn1_tag(1, asn1_seq(krb_string(username)))
+        asn1_tag(0, asn1_int(1)) +
+        asn1_tag(1, asn1_seq(asn1_gs(username.encode())))
     )
 
-    cusec_val = int_to_min_bytes(now.microsecond)
-    cusec_content = b'\x02' + asn1_len(len(cusec_val)) + cusec_val
-
+    domcaps = domain.upper()
     auth_body = (
-        asn1_tag(0, b'\x02\x01\x05') +              # [0] pvno
-        asn1_tag(1, krb_string(domain.upper())) +   # [1] crealm
-        asn1_tag(2, asn1_seq(cname_content)) +      # [2] cname
-        asn1_tag(4, cusec_content) +                # [4] cusec (tag a4)
-        asn1_tag(5, b'\x18\x0f' + ts_str)           # [5] ctime (tag a5)
+        asn1_tag(0, asn1_int(5)) +                       # pvno
+        asn1_tag(1, asn1_gs(domcaps.encode())) +         # crealm
+        asn1_tag(2, asn1_seq(cname_content)) +           # cname
+        asn1_tag(4, asn1_int(now.microsecond)) +         # cusec
+        asn1_tag(5, asn1_gt(ts_str))                     # ctime
     )
 
-    inner_seq = b'\x30' + asn1_len(len(auth_body)) + auth_body
-    auth_plain = b'\x62' + asn1_len(len(inner_seq)) + inner_seq
+    # Application Tag 2 (0x62) -> Authenticator
+    auth_plain = b'\x62' + asn1_len(asn1_seq(auth_body)) + asn1_seq(auth_body)
+
+    # Encrypt Authenticator (7 -> TGS-REQ) ---
     final_cipher = encrypt_kerberos_aes_cts(session_key, 7, auth_plain)
-    etype_part = b'\xa0\x03\x02\x01\x12'            # [0] etype AES256
-
-    cipher_octet = b'\x04' + asn1_len(len(final_cipher)) + final_cipher
-    cipher_part = b'\xa2' + asn1_len(len(cipher_octet)) + cipher_octet
-
-    auth_enc_seq = (
-        b'\x30' +
-        asn1_len(len(etype_part + cipher_part)) +
-        etype_part +
-        cipher_part
+    auth_enc_seq = asn1_seq(
+        asn1_tag(0, asn1_int(18)) +                      # etype AES256
+        asn1_tag(2, asn1_os(final_cipher))               # cipher
     )
 
+    # AP-REQ (-> PA-DATA)
     ap_req_body = (
-        asn1_tag(0, b'\x02\x01\x05') +                    # [0] pvno (v5)
-        asn1_tag(1, b'\x02\x01\x0e') +                    # [1] msg-type [14]
-        asn1_tag(2, b'\x03\x05\x00\x00\x00\x00\x00') +    # [2] ap-options
-        asn1_tag(3, ticket_bytes) +                       # [3] ticket
-        asn1_tag(4, auth_enc_seq)                         # [4] authenticator
+        asn1_tag(0, asn1_int(5)) +                       # pvno
+        asn1_tag(1, asn1_int(14)) +                      # msg-type (14=AP-REQ)
+        asn1_tag(2, b'\x03\x05\x00\x00\x00\x00\x00') +   # ap-options
+        asn1_tag(3, ticket_bytes) +                      # ticket
+        asn1_tag(4, auth_enc_seq)                        # authenticator
     )
+    ap_req_seq = asn1_seq(ap_req_body)
+    encoded_ap_req = b'\x6e' + asn1_len(ap_req_seq) + ap_req_seq
 
-    ap_req_sequence = b'\x30' + asn1_len(len(ap_req_body)) + ap_req_body
-    encoded_ap_req = b'\x6e' + asn1_len(len(ap_req_sequence)) + ap_req_sequence
-    padata_value = b'\x04' + asn1_len(len(encoded_ap_req)) + encoded_ap_req
-
-    padata_item_content = (
-        asn1_tag(1, b'\x02\x01\x01') +  # [1] padata-type (PA-TGS-REQ)
-        asn1_tag(2, padata_value)
+    padata_item = asn1_seq(
+        asn1_tag(1, asn1_int(1)) +                       # PA-TGS-REQ
+        asn1_tag(2, asn1_os(encoded_ap_req))             # value
     )
-    padata_item = (
-        b'\x30' +
-        asn1_len(len(padata_item_content)) +
-        padata_item_content
-    )
-    padata_list_wrapper = b'\x30' + asn1_len(len(padata_item)) + padata_item
-    padata_field = (
-        b'\xa3' +
-        asn1_len(len(padata_list_wrapper)) +
-        padata_list_wrapper
-    )
+    padata_field = asn1_tag(3, asn1_seq(padata_item))    # [3] padata
 
     service, host_fqdn = target_service
-    sname_strings_seq = asn1_seq(krb_string(service) + krb_string(host_fqdn))
-    sname_inner_content = (
-        asn1_tag(0, b'\x02\x01\x02') +   # Name-type: 2
-        asn1_tag(1, sname_strings_seq)   # strings
+    sname_inner = (
+        asn1_tag(0, asn1_int(2)) +                       # NT-SRV-INST
+        asn1_tag(1, asn1_seq(
+            asn1_gs(service.encode()) +
+            asn1_gs(host_fqdn.encode())
+        ))
     )
 
-    etype_list = b'\x02\x01\x17\x02\x01\x10\x02\x01\x03\x02\x01\x12'
+    # Etype list: RC4, AES128, DES, AES256
+    etype_list = asn1_int(23) + asn1_int(16) + asn1_int(3) + asn1_int(18)
     nonce = random.getrandbits(31)
 
     req_body_content = (
-        asn1_tag(0, b'\x03\x05\x00\x40\x81\x00\x10') +          # KDC Options
-        asn1_tag(2, krb_string(domain.upper())) +               # Realm
-        asn1_tag(3, asn1_seq(sname_inner_content)) +            # [3] sname
-        asn1_tag(5, b'\x18\x0f' + ts_str) +                     # Till
-        asn1_tag(7, b'\x02\x04' + struct.pack('>I', nonce)) +   # Nonce
-        asn1_tag(8, asn1_seq(etype_list))                       # Etypes
+        asn1_tag(0, b'\x03\x05\x00\x40\x81\x00\x10') +   # KDC Options
+        asn1_tag(2, asn1_gs(domcaps.encode())) +         # Realm
+        asn1_tag(3, asn1_seq(sname_inner)) +             # sname
+        asn1_tag(5, asn1_gt(ts_str)) +                   # Till
+        asn1_tag(7, asn1_int(nonce)) +                   # Nonce
+        asn1_tag(8, asn1_seq(etype_list))                # Etypes
     )
-    req_body_field = (
-        b'\xa4' +
-        asn1_len(len(asn1_seq(req_body_content))) +
-        asn1_seq(req_body_content)
-    )
+    req_body_field = asn1_tag(4, asn1_seq(req_body_content))
 
+    # TGS-REQ
     final_content = (
-        asn1_tag(1, b'\x02\x01\x05') +           # [1] pvno (v5)
-        asn1_tag(2, b'\x02\x01\x0c') +           # [2] msg-type (12 = TGS-REQ)
-        padata_field +                           # [3] padata (a3...)
-        req_body_field                           # [4] req-body (a4...)
+        asn1_tag(1, asn1_int(5)) +                       # pvno
+        asn1_tag(2, asn1_int(12)) +                      # msg-type 12=TGS-REQ
+        padata_field +
+        req_body_field
     )
 
-    inner_sequence = b'\x30' + asn1_len(len(final_content)) + final_content
-    packet = b'\x6c' + asn1_len(len(inner_sequence)) + inner_sequence
-
-    return packet
+    # Application Tag 12 (0x6c) -> TGS-REQ
+    inner_seq = asn1_seq(final_content)
+    return b'\x6c' + asn1_len(inner_seq) + inner_seq
 
 
 def extract_ticket(as_rep_bytes):
     tag_5_idx = as_rep_bytes.find(b'\xa5')
     if tag_5_idx == -1:
         raise ValueError("Tag [5] (Ticket container) not found!")
-
+    print('OFFSET TAG_5_IDX: ', tag_5_idx)
     ticket_start = as_rep_bytes.find(b'\x61', tag_5_idx)
+    print('OFFSET TICKET_START: ', ticket_start)
     len_bytes = as_rep_bytes[ticket_start + 2: ticket_start + 4]
     ticket_len = int.from_bytes(len_bytes, byteorder='big')
     total_len = ticket_len + 4

@@ -5,6 +5,7 @@ import hmac
 import math
 import struct
 from functools import reduce
+from pyasn1.codec.der import decoder, encoder
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from Cryptodome.Cipher import AES
 from Cryptodome.Hash import HMAC, SHA1, MD5
@@ -183,7 +184,6 @@ def encrypt_kerberos_aes_cts(session_key: bytes,
 
 
 def encrypt_kerberos_rc4(session_key, usage, plaintext):
-    # checked, 100% correct
     confounder = os.urandom(8)
     data_to_encrypt = confounder + plaintext
 
@@ -197,6 +197,38 @@ def encrypt_kerberos_rc4(session_key, usage, plaintext):
     encrypted_data = cipher.encrypt(data_to_encrypt)
 
     return checksum + encrypted_data
+
+
+def decrypt_kerberos_rc4(key, usage, data):
+    checksum = data[:16]
+    encrypted_data = data[16:]
+
+    k1 = hmac.new(key, struct.pack('<I', usage), hashlib.md5).digest()
+    k3 = hmac.new(k1, checksum, hashlib.md5).digest()
+
+    cipher = RC4(k3)
+    decrypted = cipher.decrypt(encrypted_data)
+
+    return decrypted[8:]  # Skip 8 bytes confounder
+
+
+def read_session_key(data: bytes) -> bytes:
+    payload = data[16:]
+    as_rep_part, _ = decoder.decode(payload)
+    key_container_bytes = encoder.encode(as_rep_part[0])
+    inner_key_seq, _ = decoder.decode(key_container_bytes)
+
+    key_type_bytes = encoder.encode(inner_key_seq[0])
+    key_value_bytes = encoder.encode(inner_key_seq[1])
+
+    key_type_obj, _ = decoder.decode(key_type_bytes)
+    key_value_obj, _ = decoder.decode(key_value_bytes)
+
+    session_key = bytes(key_value_obj.asOctets())
+    _key_type = int(key_type_obj)
+
+    return session_key
+
 
 #####################################################################
 #
@@ -314,8 +346,3 @@ def sign_func_kerberos(session_key):
 
     return _kerberos_signer
 
-
-def int_to_min_bytes(n):
-    """Convert int to mininal big-endian byte-array."""
-    if n == 0: return b'\x00'
-    return n.to_bytes((n.bit_length() + 7) // 8, 'big')

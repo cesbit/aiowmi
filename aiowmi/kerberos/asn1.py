@@ -1,4 +1,5 @@
 import struct
+from typing import Union
 
 
 def asn1_tag(tag_num: int, content: bytes) -> bytes:
@@ -12,7 +13,8 @@ def asn1_tag(tag_num: int, content: bytes) -> bytes:
     return struct.pack('B', 0xa0 | tag_num) + len_octet + content
 
 
-def asn1_len(n: int) -> bytes:
+def asn1_len(n_or_b: Union[bytes, int]) -> bytes:
+    n = n_or_b if isinstance(n_or_b, int) else len(n_or_b)
     if n <= 127:
         return struct.pack('B', n)
     l_bytes = []
@@ -22,16 +24,32 @@ def asn1_len(n: int) -> bytes:
     return struct.pack('B', 0x80 | len(l_bytes)) + bytes(l_bytes)
 
 
-def asn1_len_long(length):
-    if length < 128:
-        return bytes([length])
-    else:
-        return b'\x81' + bytes([length & 0xff])
-
-
 def asn1_seq(content: bytes) -> bytes:
-    return b'\x30' + asn1_len(len(content)) + content
+    return b'\x30' + asn1_len(content) + content
 
 
-def krb_string(s):
-    return b'\x1b' + asn1_len(len(s)) + s.encode()
+def asn1_gs(val: bytes) -> bytes:
+    return b'\x1b' + asn1_len(val) + val
+
+
+def asn1_int(val: int) -> bytes:
+    """
+    Codeert een integer naar ASN.1 formaat (Tag 0x02).
+    """
+    # 1. Bepaal aantal bytes
+    num_bytes = (val.bit_length() + 7) // 8 or 1
+    int_bytes = val.to_bytes(num_bytes, 'big')
+
+    # 2. Signed integer padding
+    if int_bytes[0] & 0x80:
+        int_bytes = b'\x00' + int_bytes
+
+    # 3. Gebruik len() voor asn1_len
+    return b'\x02' + asn1_len(int_bytes) + int_bytes
+
+
+def asn1_gt(val: bytes) -> bytes:
+    return b'\x18' + asn1_len(val) + val
+
+def asn1_os(val: bytes) -> bytes:
+    return b'\x04' + asn1_len(val) + val

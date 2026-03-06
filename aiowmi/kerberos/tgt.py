@@ -10,11 +10,10 @@ def extract_kerberos_salt(error_data: bytes) -> str:
     PA-ETYPE-INFO2 (Tag 19).
     """
     try:
-        start_marker = b'\x1b\x1c'
-        if start_marker in error_data:
-            offset = error_data.find(start_marker) + 2
-            salt = error_data[offset:offset+28].decode('utf-8')
-            return salt
+        offset = error_data.find(b'\x1b\x1c') + 2
+        print('OFFSET SALT: ', offset)
+        salt = error_data[offset:offset+28].decode('utf-8')
+        return salt
     except Exception:
         pass
     raise Exception('failed to get salt')
