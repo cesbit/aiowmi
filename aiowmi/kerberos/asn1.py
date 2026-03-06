@@ -33,18 +33,12 @@ def asn1_gs(val: bytes) -> bytes:
 
 
 def asn1_int(val: int) -> bytes:
-    """
-    Codeert een integer naar ASN.1 formaat (Tag 0x02).
-    """
-    # 1. Bepaal aantal bytes
     num_bytes = (val.bit_length() + 7) // 8 or 1
     int_bytes = val.to_bytes(num_bytes, 'big')
 
-    # 2. Signed integer padding
     if int_bytes[0] & 0x80:
         int_bytes = b'\x00' + int_bytes
 
-    # 3. Gebruik len() voor asn1_len
     return b'\x02' + asn1_len(int_bytes) + int_bytes
 
 
