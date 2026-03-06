@@ -45,5 +45,6 @@ def asn1_int(val: int) -> bytes:
 def asn1_gt(val: bytes) -> bytes:
     return b'\x18' + asn1_len(val) + val
 
-def asn1_os(val: bytes) -> bytes:
+
+def asn1_ostr(val: bytes) -> bytes:
     return b'\x04' + asn1_len(val) + val

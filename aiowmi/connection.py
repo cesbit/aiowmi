@@ -2,16 +2,17 @@ import asyncio
 import pickle
 from typing import Optional, Callable
 from Crypto.Cipher import ARC4
-from .protocol import Protocol
 from .dcom import Dcom
-from .rpc.bind_ack import RpcBindAck
-from .kerberos.tgt import get_tgt
-from .kerberos.tgs import get_tgs
+from .exceptions import RpcSecPkgError
 from .kerberos.ap_req import build_ap_req, wrap_gss_kerberos, get_active_key
-from .ntlm.auth_challange import NTLMAuthChallenge
+from .kerberos.krb5_pdu import get_neg_token, build_alter_context
+from .kerberos.tgs import get_tgs
+from .kerberos.tgt import get_tgt
 from .ntlm.auth_authenticate import NTLMAuthAuthenticate
+from .ntlm.auth_challange import NTLMAuthChallenge
 from .ntlm.auth_negotiate import NTLMAuthNegotiate
 from .ntlm.tools import seal_func, sign_func
+from .protocol import Protocol
 from .tools import get_rangom_bytes, encrypted_session_key
 from .rpc.const import (
     RPC_C_AUTHN_LEVEL_CONNECT,
@@ -36,6 +37,7 @@ from .dcom_const import (
     IID_IWbemLevel1Login,
     IID_IWbemServices,
 )
+from .rpc.bind_ack import RpcBindAck
 from .rpc.request import RpcRequest
 from .rpc.response import RpcResponse
 from .ndr.remote_create_instance_response import RemoteCreateInstanceResponse
@@ -242,16 +244,21 @@ class Connection:
         active_key, seq_number = get_active_key(rpc_bind_ack.auth.auth_value,
                                                 service_session_key)
 
-        print('GEVONDEN: ', active_key, seq_number)
-
-        from .kerberos.krb5_pdu import build_msrpc_auth3_token
-        context_pdu = build_msrpc_auth3_token(active_key, seq_number)
-        print(context_pdu)
-
-        # res = await proto.get_dcom_response(context_pdu)
-        # print(res)
+        neg_token = get_neg_token(service_session_key, seq_number)
+        alter_context_pkg = build_alter_context(
+            iid,
+            proto._dcom.get_new_call_id(),
+            proto._auth_level,
+            neg_token,
+        )
+        try:
+            # My guess is we only need this when we have a new active_key,
+            # but i'm not sure....
+            resp = await proto.get_dcom_response(alter_context_pkg)
+            print('ALTER CTX', resp)
+        except RpcSecPkgError:
+            pass
         assert 0
-
         if proto._auth_level >= RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
             proto._client_sign = kerberos_sign_func(service_session_key)
             proto._client_seal = kerberos_seal_func(service_session_key)

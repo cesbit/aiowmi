@@ -157,7 +157,7 @@ class Protocol(asyncio.Protocol):
             self.write(request)
 
             data = await asyncio.wait_for(req.fut, timeout)
-
+        
             while True:
                 rpc_common = RpcCommon.from_data(data)
                 ndata = len(data)

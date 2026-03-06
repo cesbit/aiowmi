@@ -1,0 +1,78 @@
+import datetime
+import struct
+from .asn1 import asn1_len, asn1_seq, asn1_tag, asn1_int, asn1_gt, asn1_ostr
+from .tools import encrypt_kerberos_rc4
+from ..dcom_const import  NDR_TransferSyntaxIdentifier
+from ..rpc.const import RPC_C_AUTHN_GSS_NEGOTIATE
+
+
+def get_neg_token(service_session_key: bytes, seq_number: int):
+    now = datetime.datetime.now(datetime.timezone.utc)
+    timestamp = now.strftime('%Y%m%d%H%M%SZ').encode('ascii')
+    cusec = now.microsecond
+
+    enc_ap_rep_body = (
+        asn1_tag(0, asn1_gt(timestamp)) +   # [0] ctime
+        asn1_tag(1, asn1_int(cusec)) +      # [1] cusec
+        asn1_tag(3, asn1_int(seq_number))
+    )
+    inner_seq = asn1_seq(enc_ap_rep_body)
+    enc_ap_rep = b'\x7b' + asn1_len(inner_seq) + inner_seq
+
+    encrypted_data = encrypt_kerberos_rc4(service_session_key, 12, enc_ap_rep)
+    enc_part_content = (
+        asn1_tag(0, asn1_int(23)) +                  # etype 23 (RC4)
+        asn1_tag(2, asn1_ostr(encrypted_data))       # cipher
+    )
+
+    ap_rep_body = (
+        asn1_tag(0, asn1_int(5)) +                   # pvno
+        asn1_tag(1, asn1_int(15)) +                  # msg-type 15 (AP-REP)
+        asn1_tag(2, asn1_seq(enc_part_content))      # enc-part
+    )
+
+    ap_rep = b'\x6f' + asn1_len(asn1_seq(ap_rep_body)) + asn1_seq(ap_rep_body)
+    response_token = asn1_tag(2, asn1_ostr(ap_rep))
+    auth_neg_token = asn1_tag(1, asn1_seq(response_token))
+
+    return auth_neg_token
+
+
+def build_alter_context(iid: bytes,
+                        call_id: int,
+                        auth_level: int,
+                        neg_token: bytes):
+    ndr_ts = NDR_TransferSyntaxIdentifier
+
+    sec_trailer = struct.pack('<BBBB',
+                              RPC_C_AUTHN_GSS_NEGOTIATE,
+                              auth_level,
+                              0x00, 0x00) + b'\x7f5\x01\x00'
+
+    ctx_body = (
+        b'\x00\x00\x00\x00' +       # Padding
+        b'\x01\x00\x00\x00' +       # NumCtxItems: 1
+        b'\x00\x00' +               # Context ID: 0
+        b'\x01\x00' +               # NumTransItems: 1
+        iid +                       # IID (20 bytes incl version)
+        ndr_ts +                    # Syntax (20 bytes)
+        b'\x00\x00\x01\x00' +       # Impacket indicator / marker
+        iid +                       # IID repeat (20 bytes)
+        ndr_ts                      # Syntax repeat (20 bytes)
+    )
+
+    auth_len = len(neg_token)
+    frag_len = 124 + auth_len
+
+    header = (
+        b'\x05\x00' +               # RPC Version 5.0
+        b'\x0e' +                   # PDU Type: Alter Context
+        b'\x03' +                   # Flags: First + Last
+        b'\x10\x00\x00\x00' +       # Data Representation
+        struct.pack('<H', frag_len) +
+        struct.pack('<H', auth_len) +
+        struct.pack('<I', call_id) +
+        b'\xb8\x10\xb8\x10'         # Max Xmit/Recv (4280)
+    )
+
+    return header + ctx_body + sec_trailer + neg_token

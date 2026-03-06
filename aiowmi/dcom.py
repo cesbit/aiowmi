@@ -8,14 +8,16 @@ from .rpc.bind import RpcBind
 from .rpc.bind_ack import RpcBindAck
 from .rpc.bind_nac import RpcBindNak
 from .rpc.common import RpcCommon
+from .rpc.alter_ctx_r import RpcAlterCtxR
+from .rpc.const import MSRPC_ALTERCTX_R
 from .rpc.const import MSRPC_AUTH3
 from .rpc.const import MSRPC_BINDACK
 from .rpc.const import MSRPC_BINDNAK
 from .rpc.const import MSRPC_FAULT
 from .rpc.const import MSRPC_RESPONSE
-from .rpc.const import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from .rpc.const import RPC_C_AUTHN_GSS_KERBEROS
 from .rpc.const import RPC_C_AUTHN_GSS_NEGOTIATE
+from .rpc.const import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from .rpc.const import RPC_C_AUTHN_WINNT
 from .rpc.cont_elem import RpcContElem
 from .rpc.fault import RpcFault
@@ -35,6 +37,11 @@ class Dcom:
     def set_call_id(self, rpc_common: RpcCommon):
         rpc_common.call_id = self._call_id
         self._call_id += 1
+
+    def get_new_call_id(self) -> int:
+        call_id = self._call_id
+        self._call_id += 1
+        return call_id
 
     def get_seq_num(self):
         seq_num = self._seq_num
@@ -82,10 +89,10 @@ class Dcom:
 
         auth_verifier, auth_length = RpcAuthVerifierCo.make(
             RPC_C_AUTHN_GSS_NEGOTIATE,
-            auth_level,                 # RPC_C_AUTHN_LEVEL_PKT_PRIVACY (6)
+            auth_level,         # RPC_C_AUTHN_LEVEL_PKT_PRIVACY (6)
             auth_pad_length,
-            0x0001357f,                 # auth_context_id
-            ap_req_bytes                # AP-REQ bytes
+            0x0001357f,         # auth_context_id
+            ap_req_bytes        # AP-REQ bytes
         )
 
         rpc_bind.set_auth_verifier(auth_verifier, auth_length)
@@ -119,6 +126,7 @@ class Dcom:
     _DCOM_RPC_MAP = {
         MSRPC_BINDACK: RpcBindAck,
         MSRPC_BINDNAK: RpcBindNak,
+        MSRPC_ALTERCTX_R: RpcAlterCtxR,
         MSRPC_RESPONSE: RpcResponse,
         MSRPC_FAULT: RpcFault,
     }

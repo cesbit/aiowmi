@@ -1,7 +1,7 @@
 import struct
 import random
 from .asn1 import (
-    asn1_len, asn1_tag, asn1_seq, asn1_gs, asn1_os, asn1_int, asn1_gt
+    asn1_len, asn1_tag, asn1_seq, asn1_gs, asn1_ostr, asn1_int, asn1_gt
 )
 from .kdc import send_kerberos_packet
 from .tools import decrypt_kerberos_aes_cts, encrypt_kerberos_aes_cts
@@ -130,7 +130,7 @@ def build_tgs_req(username: str,
     final_cipher = encrypt_kerberos_aes_cts(session_key, 7, auth_plain)
     auth_enc_seq = asn1_seq(
         asn1_tag(0, asn1_int(18)) +                      # etype AES256
-        asn1_tag(2, asn1_os(final_cipher))               # cipher
+        asn1_tag(2, asn1_ostr(final_cipher))               # cipher
     )
 
     # AP-REQ (-> PA-DATA)
@@ -146,7 +146,7 @@ def build_tgs_req(username: str,
 
     padata_item = asn1_seq(
         asn1_tag(1, asn1_int(1)) +                       # PA-TGS-REQ
-        asn1_tag(2, asn1_os(encoded_ap_req))             # value
+        asn1_tag(2, asn1_ostr(encoded_ap_req))             # value
     )
     padata_field = asn1_tag(3, asn1_seq(padata_item))    # [3] padata
 

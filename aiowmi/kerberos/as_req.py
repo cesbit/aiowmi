@@ -6,7 +6,7 @@ import hashlib
 from datetime import datetime, timedelta, timezone
 from .tools import aes_cts_encrypt, derive_key
 from .asn1 import (
-    asn1_len, asn1_seq, asn1_tag, asn1_int, asn1_gt, asn1_gs, asn1_os
+    asn1_len, asn1_seq, asn1_tag, asn1_int, asn1_gt, asn1_gs, asn1_ostr
 )
 
 
@@ -20,7 +20,7 @@ def build_as_req(username: str, domain: str, pa_enc: bytes = b'') -> bytes:
     # Type 128 (PA-PAC-REQUEST)
     padata_element_content = (
         asn1_tag(1, asn1_int(128)) +
-        asn1_tag(2, asn1_os(pac_req))
+        asn1_tag(2, asn1_ostr(pac_req))
     )
     padata_sequence_of = asn1_seq(pa_enc + asn1_seq(padata_element_content))
 
@@ -103,20 +103,20 @@ def build_full_as_req(username: str, domain: str, base_key: bytes):
 
     enc_data_content = (
         asn1_tag(0, asn1_int(18)) +          # etype 18 (AES-256)
-        asn1_tag(2, asn1_os(final_payload))
+        asn1_tag(2, asn1_ostr(final_payload))
     )
 
     enc_data = asn1_seq(enc_data_content)
     pa_ts_content = (
         asn1_tag(1, asn1_int(2)) +       # Type: PA-ENC-TIMESTAMP
-        asn1_tag(2, asn1_os(enc_data))   # Value: Octet String
+        asn1_tag(2, asn1_ostr(enc_data))   # Value: Octet String
     )
     pa_ts = asn1_seq(pa_ts_content)
 
     pa_pac_val = asn1_seq(asn1_tag(0, b'\x01\x01\xff')) # Boolean True
     pa_pac_content = (
         asn1_tag(1, asn1_int(128)) +
-        asn1_tag(2, asn1_os(pa_pac_val))
+        asn1_tag(2, asn1_ostr(pa_pac_val))
     )
     pa_pac = asn1_seq(pa_pac_content)
     padata_field = asn1_tag(3, asn1_seq(pa_ts + pa_pac))

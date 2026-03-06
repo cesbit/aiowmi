@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from pyasn1.codec.ber import decoder, encoder
-from .asn1 import asn1_len, asn1_tag, asn1_gt, asn1_int, asn1_os
+from .asn1 import asn1_len, asn1_tag, asn1_gt, asn1_int, asn1_ostr
 from .tools import encrypt_kerberos_rc4, decrypt_kerberos_rc4
 from .const import OID_KERBEROS_V5, OID_MS_LEGACY_KRB, OID_SPNEGO
 
@@ -14,7 +14,7 @@ def wrap_gss_kerberos(ap_req_bytes):
     gss_token = b'\x60' + asn1_len(inner_token) + inner_token
 
     # OctetString wrapper (0x04) MechToken [2]
-    mech_token = asn1_tag(2, asn1_os(gss_token))
+    mech_token = asn1_tag(2, asn1_ostr(gss_token))
 
     # NegTokenInit Sequence [30] -> Wrapper [0]
     neg_token_body = mech_types + mech_token
@@ -36,7 +36,7 @@ def build_ap_req(username: str,
     gss_data = b'\x10\x00\x00\x00' + b'\x00' * 16 + b'\x3e\x10\x00\x00'
     cksum_inner = (
         asn1_tag(0, asn1_int(32771)) +
-        asn1_tag(1, asn1_os(gss_data))
+        asn1_tag(1, asn1_ostr(gss_data))
     )
     cksum_asn1 = asn1_tag(3, b'\x30\x23' + cksum_inner)
 
@@ -69,7 +69,7 @@ def build_ap_req(username: str,
     enc_auth = encrypt_kerberos_rc4(service_session_key, 11, auth_asn1)
 
     etype_asn1 = asn1_tag(0, b'\x02\x01\x17')  # RC4-HMAC (23)
-    cipher_asn1 = asn1_tag(2, asn1_os(enc_auth))
+    cipher_asn1 = asn1_tag(2, asn1_ostr(enc_auth))
     enc_body = etype_asn1 + cipher_asn1
     enc_part = asn1_tag(4, b'\x30' + asn1_len(enc_body) + enc_body)
 
@@ -115,6 +115,7 @@ def get_active_key(auth_bytes: bytes,
         key_idx = asn1_data.find(KEY_MARKER)
         if key_idx != -1:
             active_key = asn1_data[key_idx + 4 : key_idx + 4 + 16]
+            print('New activation key!')
 
         SEQ_MARKER = b'\xa3'
         seq_idx = asn1_data.find(SEQ_MARKER)

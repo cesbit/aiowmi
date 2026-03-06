@@ -2082,6 +2082,10 @@ class RpcNoContextAvailable(RpcException):
     msg = 'RPC_S_NO_CONTEXT_AVAILABLE'
 
 
+class RpcSecPkgError(RpcException):
+    msg = 'RPC_S_SEC_PKG_ERROR'
+
+
 _RPC_EX_LOOKUP = {
     rpc_const.ACCESS_DENIED: AccessDenied,
     rpc_const.AUTHENTICATION_TYPE_NOT_RECOGNIZED:
@@ -2090,6 +2094,7 @@ _RPC_EX_LOOKUP = {
     rpc_const.RPC_S_INVALID_BOUND: RpcInvalidBound,
     rpc_const.RPC_S_CANNOT_SUPPORT: RpcCannotSupport,
     rpc_const.RPC_X_BAD_STUB_DATA: RpcBadStubData,
+    rpc_const.RPC_S_SEC_PKG_ERROR: RpcSecPkgError,
     rpc_const.NCA_S_COMM_FAILURE: NcaCommFailure,
     rpc_const.NCA_S_OP_RNG_ERROR: NcaOpRngError,
     rpc_const.NCA_S_UNK_IF: NcaUnkIf,
