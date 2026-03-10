@@ -41,13 +41,14 @@ def get_neg_token(service_session_key: bytes, seq_number: int):
 def build_alter_context(iid: bytes,
                         call_id: int,
                         auth_level: int,
+                        context_id: int,
                         neg_token: bytes):
     ndr_ts = NDR_TransferSyntaxIdentifier
 
     sec_trailer = struct.pack('<BBBB',
                               RPC_C_AUTHN_GSS_NEGOTIATE,
                               auth_level,
-                              0x00, 0x00) + b'\x7f5\x01\x00'
+                              0x00, 0x00) + struct.pack('<I', context_id)
 
     ctx_body = (
         b'\x00\x00\x00\x00' +       # Padding

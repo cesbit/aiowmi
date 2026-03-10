@@ -42,10 +42,11 @@ import struct
 from typing import TYPE_CHECKING, Optional
 from .common import RpcCommon
 from .cont_elem import RpcContElem
-from .const import MSRPC_REQUEST, PFC_OBJECT_UUID
+from .const import MSRPC_REQUEST, PFC_OBJECT_UUID, RPC_C_AUTHN_GSS_NEGOTIATE
 from ..rpc.auth_verifier_co import RpcAuthVerifierCo
 from ..tools import pad4
 from ..uuid import uuid_to_bin
+
 
 if TYPE_CHECKING:
     from ..protocol import Protocol
@@ -83,7 +84,7 @@ class RpcRequest(RpcCommon):
             proto._auth_type,
             proto._auth_level,
             auth_pad_length,
-            4242,  # context id
+            proto._context_id,
             self.AUTH_VALUE)
 
         proto._dcom.set_call_id(self)
@@ -126,7 +127,7 @@ class RpcRequest(RpcCommon):
             proto._auth_type,
             proto._auth_level,
             auth_pad_length,
-            4242,  # context id
+            proto._context_id,  # context id
             self.AUTH_VALUE)
 
         proto._dcom.set_call_id(self)

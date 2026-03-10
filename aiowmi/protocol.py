@@ -27,6 +27,7 @@ class Protocol(asyncio.Protocol):
         self._interface: NdrInterface = None
         self._auth_type: int = None
         self._auth_level: int = None
+        self._context_id: int = 0
         self._flags = None
         self._client_seal: Optional[Callable] = None
         self._client_sign: Optional[Callable] = None
@@ -157,7 +158,7 @@ class Protocol(asyncio.Protocol):
             self.write(request)
 
             data = await asyncio.wait_for(req.fut, timeout)
-        
+
             while True:
                 rpc_common = RpcCommon.from_data(data)
                 ndata = len(data)

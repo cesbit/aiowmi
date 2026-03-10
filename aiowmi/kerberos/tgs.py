@@ -146,7 +146,7 @@ def build_tgs_req(username: str,
 
     padata_item = asn1_seq(
         asn1_tag(1, asn1_int(1)) +                       # PA-TGS-REQ
-        asn1_tag(2, asn1_ostr(encoded_ap_req))             # value
+        asn1_tag(2, asn1_ostr(encoded_ap_req))           # value
     )
     padata_field = asn1_tag(3, asn1_seq(padata_item))    # [3] padata
 

@@ -10,6 +10,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from Cryptodome.Cipher import AES
 from Cryptodome.Hash import HMAC, SHA1, MD5
 from .rc4 import RC4
+from .gss import gss_wrap_rc4
 
 
 def _nfold(ba, nbytes):
@@ -276,43 +277,16 @@ def kerberos_hmac_sha1_96(ki, data):
 
 
 def seal_func_kerberos(session_key: bytes):
-    """
-    seal_func for Kerberos.
-    session_key: Raw key from ticket
-    """
-    # Prepare: keys for one time per session
-    # Use 22 for Seal/Wrap (Initiator)
-    ke, ki = derive_kerberos_keys(session_key, usage=22)
-
     def _kerberos_sealer(
             flags: int,
             seq_num: int,
             message_to_sign: bytes,    # sign+seal is a single stap
             message_to_encrypt: bytes,
-            ke: bytes,
-            ki: bytes) -> tuple[bytes, bytes]:
-
-        # Padding (AES block size 16)
-        pad_len = 16 - (len(message_to_encrypt) % 16)
-        padded_data = message_to_encrypt + (b'\x00' * pad_len)
-
-        # GSS-API Header (RFC 4121) for Wrap
-        # 0504 = Wrap Token, 06 = Flags (Sealed + Acceptor Subkey)
-        header = struct.pack('>HHBB', 0x0504, 0x0600, 0x00, 0x00)
-        header += struct.pack('>Q', seq_num)
-
-        # Encryption with AES-CTS (Ke)
-        ciphertext = aes_cts_encrypt(ke, padded_data)
-
-        # Checksum (MIC) (Header + Padded Plaintext (Ki))
-        # Important: checksum for plaintext data
-        checksum = kerberos_hmac_sha1_96(ki, header + padded_data)
-
-        # Return (Sealed data, Auth Verifier)
-        # Auth Verifier is the GSS Header + Checksum
-        return ciphertext, header + checksum
-
-    return functools.partial(_kerberos_sealer, ke=ke, ki=ki)
+            session_key: bytes) -> tuple[bytes, bytes]:
+        return gss_wrap_rc4(session_key,
+                            message_to_encrypt,
+                            seq_num)
+    return functools.partial(_kerberos_sealer, session_key=session_key)
 
 
 def sign_func_kerberos(session_key):

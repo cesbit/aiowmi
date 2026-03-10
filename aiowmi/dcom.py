@@ -40,7 +40,7 @@ class Dcom:
 
     def get_new_call_id(self) -> int:
         call_id = self._call_id
-        self._call_id += 1
+        # self._call_id += 1
         return call_id
 
     def get_seq_num(self):
@@ -52,7 +52,8 @@ class Dcom:
             self,
             iid: bytes,
             ntlm_auth_negotiate: NTLMAuthNegotiate,
-            auth_level: int):
+            auth_level: int,
+            context_id: int):
         rpc_bind = RpcBind()
 
         rpc_cont_elem = RpcContElem(iid)
@@ -65,7 +66,7 @@ class Dcom:
             RPC_C_AUTHN_WINNT,
             auth_level,
             auth_pad_length,
-            4242,  # context id
+            context_id,  # context id
             ntlm_auth_negotiate.get_data())
 
         rpc_bind.set_auth_verifier(auth_verifier, auth_length)
@@ -78,7 +79,8 @@ class Dcom:
             self,
             iid: bytes,
             ap_req_bytes: bytes,
-            auth_level: int):
+            auth_level: int,
+            context_id):
         rpc_bind = RpcBind()
 
         rpc_cont_elem = RpcContElem(iid)
@@ -91,7 +93,7 @@ class Dcom:
             RPC_C_AUTHN_GSS_NEGOTIATE,
             auth_level,         # RPC_C_AUTHN_LEVEL_PKT_PRIVACY (6)
             auth_pad_length,
-            0x0001357f,         # auth_context_id
+            context_id,         # auth_context_id
             ap_req_bytes        # AP-REQ bytes
         )
 
@@ -104,7 +106,8 @@ class Dcom:
     @staticmethod
     def get_authenticate_ntlm_pkg(
             ntlm_auth_authenticate: NTLMAuthAuthenticate,
-            auth_level: int) -> bytes:
+            auth_level: int,
+            context_id: int) -> bytes:
 
         rpc_common = RpcCommon()
         rpc_common.init(MSRPC_AUTH3)
@@ -115,7 +118,7 @@ class Dcom:
             RPC_C_AUTHN_WINNT,
             auth_level,
             0,
-            4242,  # context id
+            context_id,  # context id
             ntlm_auth_data)
         rpc_common.set_pdu_data(b'    ')
         rpc_common.set_auth_verifier(auth_verifier, auth_length)

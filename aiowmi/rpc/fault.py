@@ -36,7 +36,6 @@ class RpcFault(RpcBaseResp):
         offset = RpcCommon.COMMON_SIZE
         alloc_hint, unknown, self.status, reserved = \
             struct.unpack_from(self.FAULT_FMT, data, offset)
-        print(self.status)
 
     def get_error_message(self) -> str:
         friendly_msg = self.ERROR_MAP.get(self.status, "Unknown RPC Error")

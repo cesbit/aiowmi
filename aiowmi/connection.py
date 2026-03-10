@@ -3,11 +3,12 @@ import pickle
 from typing import Optional, Callable
 from Crypto.Cipher import ARC4
 from .dcom import Dcom
-from .exceptions import RpcSecPkgError
+from .exceptions import RpcSecPkgError, AccessDenied
 from .kerberos.ap_req import build_ap_req, wrap_gss_kerberos, get_active_key
 from .kerberos.krb5_pdu import get_neg_token, build_alter_context
 from .kerberos.tgs import get_tgs
 from .kerberos.tgt import get_tgt
+from .kerberos.tools import sign_func_kerberos, seal_func_kerberos
 from .ntlm.auth_authenticate import NTLMAuthAuthenticate
 from .ntlm.auth_challange import NTLMAuthChallenge
 from .ntlm.auth_negotiate import NTLMAuthNegotiate
@@ -113,7 +114,8 @@ class Connection:
             proto._dcom.get_negotiate_ntlm_pkg(
                 iid,
                 ntlm_auth_negotiate,
-                proto._auth_level)
+                proto._auth_level,
+                proto._context_id)
 
         rpc_bind_ack: RpcBindAck = \
             await proto.get_dcom_response(
@@ -192,7 +194,8 @@ class Connection:
         ntlm_auth_pkg = \
             proto._dcom.get_authenticate_ntlm_pkg(
                 ntlm_auth_authenticate,
-                proto._auth_level)
+                proto._auth_level,
+                proto._context_id)
 
         proto.write(ntlm_auth_pkg)
 
@@ -220,14 +223,45 @@ class Connection:
     async def negotiate_kerberos(self) -> Protocol:
         proto = self._protocol
         proto._auth_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+        proto._context_id = 0x0001357f
 
         if not self._domain:
             raise Exception('domain is required for Kerberos authentication')
 
-        if self._tgt is None or self._tgt is None:
-            await self._negotiate_kerberos()
+        has_keys = self._tgt is not None and self._tgt is not None
+        while True:
+            if not has_keys:
+                await self._negotiate_kerberos()
 
-        await self._bind_kerberos(IID_IRemoteSCMActivator, proto)
+            try:
+                await self._bind_kerberos(IID_IRemoteSCMActivator, proto)
+            except AccessDenied:
+                if has_keys:
+                    has_keys = False  # attemp to get new keys
+                    continue
+                raise
+            else:
+                break
+
+        remote_create_instance = RemoteCreateInstance(
+            CLSID_IWbemLevel1Login,
+            IID_IWbemLevel1Login)
+
+        rci_pkg = remote_create_instance.get_data()
+
+        request = RpcRequest(op_num=4)
+        request.set_pdu_data(rci_pkg)
+
+        request_pkg = request.seal_data(proto)
+        print('REQUEST: ', request_pkg)
+
+        rpc_response: RpcResponse = \
+            await proto.get_dcom_response(
+                request_pkg,
+                size=RpcResponse.SIZE,
+                timeout=self._timeout)
+
+        message = rpc_response.get_message(proto)
 
     async def _bind_kerberos(self, iid: bytes, proto: Protocol):
         ticket, service_session_key = self._tgs
@@ -239,16 +273,21 @@ class Connection:
             iid,
             auth_value,
             proto._auth_level,
+            proto._context_id,
         )
         rpc_bind_ack = await proto.get_dcom_response(bind_pkg)
         active_key, seq_number = get_active_key(rpc_bind_ack.auth.auth_value,
                                                 service_session_key)
+
+        proto._auth_type = rpc_bind_ack.auth.auth_type
+        proto._auth_level = rpc_bind_ack.auth.auth_level
 
         neg_token = get_neg_token(service_session_key, seq_number)
         alter_context_pkg = build_alter_context(
             iid,
             proto._dcom.get_new_call_id(),
             proto._auth_level,
+            proto._context_id,
             neg_token,
         )
         try:
@@ -258,14 +297,14 @@ class Connection:
             print('ALTER CTX', resp)
         except RpcSecPkgError:
             pass
-        assert 0
         if proto._auth_level >= RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
-            proto._client_sign = kerberos_sign_func(service_session_key)
-            proto._client_seal = kerberos_seal_func(service_session_key)
+            proto._client_sign = sign_func_kerberos(active_key)
+            proto._client_seal = seal_func_kerberos(active_key)
 
     async def negotiate_ntlm(self) -> Protocol:
         proto = self._protocol
         proto._auth_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+        proto._context_id = 4242
 
         await self._bind_ntlm(IID_IRemoteSCMActivator, proto)
 
