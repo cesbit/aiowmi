@@ -95,7 +95,7 @@ class RpcRequest(RpcCommon):
 
         sealed_message, message_signature = proto._client_seal(
             flags=proto._flags,
-            seq_num=proto._dcom.get_seq_num(),
+            seq_num=0, #proto._dcom.get_seq_num(),
             message_to_sign=message_to_sign,
             message_to_encrypt=message_to_encrypt)
 
@@ -105,11 +105,7 @@ class RpcRequest(RpcCommon):
         return self.get_data()
 
     def sign_data(self, proto: 'Protocol', ctx_id: int = 0) -> bytes:
-
-        assert proto._flags == 3767042613
-
         auth_pad_length = pad4(self._pdu_data_len)
-
         alloc_hint = len(self._pdu_data)
         pdu_data = struct.pack(
             '<LHH',

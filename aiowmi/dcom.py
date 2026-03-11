@@ -40,7 +40,7 @@ class Dcom:
 
     def get_new_call_id(self) -> int:
         call_id = self._call_id
-        # self._call_id += 1
+        self._call_id += 1
         return call_id
 
     def get_seq_num(self):

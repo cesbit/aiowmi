@@ -87,8 +87,7 @@ def build_ap_req(username: str,
 
 def get_active_key(auth_bytes: bytes,
                    service_session_key: bytes) -> tuple[bytes, int]:
-    # use current if none is returned
-    active_key, seq_number = service_session_key, 0
+    active_key, seq_number = None, 0
 
     if b'\x02\x01\x17' in auth_bytes:
         # Read new session key...
@@ -108,14 +107,15 @@ def get_active_key(auth_bytes: bytes,
 
         cipher_blob = auth_bytes[pos : pos + length]
 
-        decrypted_raw = decrypt_kerberos_rc4(service_session_key, 12, cipher_blob)
+        decrypted_raw = \
+            decrypt_kerberos_rc4(service_session_key, 12, cipher_blob)
         asn1_data = decrypted_raw[8:]  # Skip 8 bytes confounder
 
         KEY_MARKER = b'\xa1\x12\x04\x10'
         key_idx = asn1_data.find(KEY_MARKER)
         if key_idx != -1:
             active_key = asn1_data[key_idx + 4 : key_idx + 4 + 16]
-            print('New activation key!')
+            print('New activation key!', active_key)
 
         SEQ_MARKER = b'\xa3'
         seq_idx = asn1_data.find(SEQ_MARKER)

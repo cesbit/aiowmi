@@ -10,7 +10,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from Cryptodome.Cipher import AES
 from Cryptodome.Hash import HMAC, SHA1, MD5
 from .rc4 import RC4
-from .gss import gss_wrap_rc4
+from .gss import gss_wrap_rc4, gss_unwrap_rc4
 
 
 def _nfold(ba, nbytes):
@@ -287,6 +287,17 @@ def seal_func_kerberos(session_key: bytes):
                             message_to_encrypt,
                             seq_num)
     return functools.partial(_kerberos_sealer, session_key=session_key)
+
+
+def gss_unwrap_kerberos(session_key: bytes):
+    def _kerberos_unwrap(
+            cipher_text: bytes,    # sign+seal is a single stap
+            auth_data: bytes,
+            session_key: bytes) -> tuple[bytes, bytes]:
+        return gss_unwrap_rc4(session_key,
+                              cipher_text,
+                              auth_data)
+    return functools.partial(_kerberos_unwrap, session_key=session_key)
 
 
 def sign_func_kerberos(session_key):

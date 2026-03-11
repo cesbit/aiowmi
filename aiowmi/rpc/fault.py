@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 class RpcFault(RpcBaseResp):
     __slots__ = ('status', 'rpc_common')
 
-    FAULT_FMT = '<IIII'
+    FAULT_FMT = '<III'
     FAULT_FMT_SIZE = struct.calcsize(FAULT_FMT)
 
     ERROR_MAP = {
@@ -34,7 +34,7 @@ class RpcFault(RpcBaseResp):
         self.rpc_common = rpc_common
 
         offset = RpcCommon.COMMON_SIZE
-        alloc_hint, unknown, self.status, reserved = \
+        alloc_hint, unknown, self.status = \
             struct.unpack_from(self.FAULT_FMT, data, offset)
 
     def get_error_message(self) -> str:

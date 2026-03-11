@@ -2,6 +2,14 @@ from . import const
 from .rpc import const as rpc_const
 
 
+class BindNak(Exception):
+    pass
+
+
+class NoNewActiveKey(Exception):
+    pass
+
+
 class ServerNotOptimized(Exception):
     pass
 

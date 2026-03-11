@@ -3,12 +3,13 @@ import pickle
 from typing import Optional, Callable
 from Crypto.Cipher import ARC4
 from .dcom import Dcom
-from .exceptions import RpcSecPkgError, AccessDenied
+from .exceptions import RpcSecPkgError, AccessDenied, NoNewActiveKey, BindNak
 from .kerberos.ap_req import build_ap_req, wrap_gss_kerberos, get_active_key
 from .kerberos.krb5_pdu import get_neg_token, build_alter_context
 from .kerberos.tgs import get_tgs
 from .kerberos.tgt import get_tgt
 from .kerberos.tools import sign_func_kerberos, seal_func_kerberos
+from .kerberos.tools import gss_unwrap_kerberos
 from .ntlm.auth_authenticate import NTLMAuthAuthenticate
 from .ntlm.auth_challange import NTLMAuthChallenge
 from .ntlm.auth_negotiate import NTLMAuthNegotiate
@@ -235,33 +236,19 @@ class Connection:
 
             try:
                 await self._bind_kerberos(IID_IRemoteSCMActivator, proto)
-            except AccessDenied:
+            except (AccessDenied, NoNewActiveKey, BindNak) as e:
+                msg = str(e) or type(e).__name__
+                logger.warning(msg)
                 if has_keys:
+                    self.close()
+                    await self.connect()
                     has_keys = False  # attemp to get new keys
                     continue
                 raise
             else:
                 break
 
-        remote_create_instance = RemoteCreateInstance(
-            CLSID_IWbemLevel1Login,
-            IID_IWbemLevel1Login)
-
-        rci_pkg = remote_create_instance.get_data()
-
-        request = RpcRequest(op_num=4)
-        request.set_pdu_data(rci_pkg)
-
-        request_pkg = request.seal_data(proto)
-        print('REQUEST: ', request_pkg)
-
-        rpc_response: RpcResponse = \
-            await proto.get_dcom_response(
-                request_pkg,
-                size=RpcResponse.SIZE,
-                timeout=self._timeout)
-
-        message = rpc_response.get_message(proto)
+        return await self._if_binding(proto, bind_func=self._bind_kerberos)
 
     async def _bind_kerberos(self, iid: bytes, proto: Protocol):
         ticket, service_session_key = self._tgs
@@ -278,7 +265,8 @@ class Connection:
         rpc_bind_ack = await proto.get_dcom_response(bind_pkg)
         active_key, seq_number = get_active_key(rpc_bind_ack.auth.auth_value,
                                                 service_session_key)
-
+        if active_key is None:
+            raise NoNewActiveKey()
         proto._auth_type = rpc_bind_ack.auth.auth_type
         proto._auth_level = rpc_bind_ack.auth.auth_level
 
@@ -300,6 +288,7 @@ class Connection:
         if proto._auth_level >= RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
             proto._client_sign = sign_func_kerberos(active_key)
             proto._client_seal = seal_func_kerberos(active_key)
+            proto._server_seal = gss_unwrap_kerberos(active_key)
 
     async def negotiate_ntlm(self) -> Protocol:
         proto = self._protocol
@@ -307,7 +296,41 @@ class Connection:
         proto._context_id = 4242
 
         await self._bind_ntlm(IID_IRemoteSCMActivator, proto)
+        return await self._if_binding(proto, bind_func=self._bind_ntlm)
 
+
+    async def login_ntlm(
+            self,
+            proto: Protocol,
+            namespace: str = 'root/cimv2'):
+        if not namespace.startswith('//'):
+            namespace = '//./' + namespace
+        ntlm_login = NTLMLogin(namespace)
+        ntlm_login_pkg = ntlm_login.get_data()
+        interface = self._protocol._interface
+
+        request = RpcRequest(op_num=6, uuid_str=interface.get_ipid())
+
+        request.set_pdu_data(ntlm_login_pkg)
+
+        request_pkg = request.sign_data(proto)
+
+        rpc_response: RpcResponse = \
+            await proto.get_dcom_response(
+                request_pkg,
+                size=RpcResponse.SIZE,
+                timeout=self._timeout)
+
+        message = rpc_response.get_message(proto)
+
+        ntlm_login_resp = NTLMLoginResponse(message)
+
+        proto._interface = ntlm_login_resp
+        proto._interface.scm_reply_info_data = interface.scm_reply_info_data
+        self._iid = IID_IWbemServices
+        self._namespace = namespace
+
+    async def _if_binding(self, proto: Protocol, bind_func: Callable):
         remote_create_instance = RemoteCreateInstance(
             CLSID_IWbemLevel1Login,
             IID_IWbemLevel1Login)
@@ -361,37 +384,5 @@ class Connection:
             interface.scm_reply_info_data.authn_hint,
             RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
 
-        await self._bind_ntlm(IID_IWbemLevel1Login, proto)
-
+        await bind_func(IID_IWbemLevel1Login, proto)
         return proto
-
-    async def login_ntlm(
-            self,
-            proto: Protocol,
-            namespace: str = 'root/cimv2'):
-        if not namespace.startswith('//'):
-            namespace = '//./' + namespace
-        ntlm_login = NTLMLogin(namespace)
-        ntlm_login_pkg = ntlm_login.get_data()
-        interface = self._protocol._interface
-
-        request = RpcRequest(op_num=6, uuid_str=interface.get_ipid())
-
-        request.set_pdu_data(ntlm_login_pkg)
-
-        request_pkg = request.sign_data(proto)
-
-        rpc_response: RpcResponse = \
-            await proto.get_dcom_response(
-                request_pkg,
-                size=RpcResponse.SIZE,
-                timeout=self._timeout)
-
-        message = rpc_response.get_message(proto)
-
-        ntlm_login_resp = NTLMLoginResponse(message)
-
-        proto._interface = ntlm_login_resp
-        proto._interface.scm_reply_info_data = interface.scm_reply_info_data
-        self._iid = IID_IWbemServices
-        self._namespace = namespace

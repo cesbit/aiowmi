@@ -156,7 +156,6 @@ class Protocol(asyncio.Protocol):
         try:
             pdu_data_list = []
             self.write(request)
-
             data = await asyncio.wait_for(req.fut, timeout)
 
             while True:
