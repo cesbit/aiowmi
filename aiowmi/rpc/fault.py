@@ -9,6 +9,7 @@ from .cont_elem import RpcContElem
 from ..uuid import bin_to_uuid_ver
 from .baseresp import RpcBaseResp
 from ..exceptions import rpc_exception
+from ..logger import logger
 
 
 if TYPE_CHECKING:
@@ -21,25 +22,16 @@ class RpcFault(RpcBaseResp):
     FAULT_FMT = '<III'
     FAULT_FMT_SIZE = struct.calcsize(FAULT_FMT)
 
-    ERROR_MAP = {
-        0x00000005: "RPC_S_ACCESS_DENIED",
-        0x000006D9: "RPC_S_EPT_MAP_NO_MORE_ENTRIES",
-        0x00000721: "RPC_S_PROTOCOL_ERROR",
-        0x000006A6: "RPC_S_INVALID_BINDING",
-        0x1C010001: "RPC_S_PROTSEQ_NOT_SUPPORTED",
-        0x1C00001B: "RPC_JT_UNKNOWN_IF (Unkown Interface on Server)"
-    }
-
     def __init__(self, dcom: Dcom, rpc_common: RpcCommon, data: bytes):
         self.rpc_common = rpc_common
+        body_data = data[RpcCommon.COMMON_SIZE:]
+        self.status = 0x00000721   # RPC_S_SEC_PKG_ERROR (most likely)
 
-        offset = RpcCommon.COMMON_SIZE
-        alloc_hint, unknown, self.status = \
-            struct.unpack_from(self.FAULT_FMT, data, offset)
-
-    def get_error_message(self) -> str:
-        friendly_msg = self.ERROR_MAP.get(self.status, "Unknown RPC Error")
-        return f"MSRPC Fault: {friendly_msg} (0x{self.status:08x})"
+        if len(body_data) >= self.FAULT_FMT_SIZE:
+            _, _, self.status = struct.unpack(self.FAULT_FMT, body_data[:12])
+        elif len(body_data) >= 4:
+            alloc_hint = struct.unpack('<I', body_data[:4])[0]
+            logger.debug(f"RPC Fault received with alloc_hint: {alloc_hint}")
 
     def throw(self):
         raise rpc_exception(self.status)

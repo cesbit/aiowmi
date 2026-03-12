@@ -1,15 +1,14 @@
 import asyncio
-import pickle
 from typing import Optional, Callable
 from Crypto.Cipher import ARC4
-from .dcom import Dcom
 from .exceptions import RpcSecPkgError, AccessDenied, NoNewActiveKey, BindNak
 from .kerberos.ap_req import build_ap_req, wrap_gss_kerberos, get_active_key
+from .kerberos.cache import KerberosCache
 from .kerberos.krb5_pdu import get_neg_token, build_alter_context
 from .kerberos.tgs import get_tgs
 from .kerberos.tgt import get_tgt
-from .kerberos.tools import sign_func_kerberos, seal_func_kerberos
 from .kerberos.tools import gss_unwrap_kerberos
+from .kerberos.tools import sign_func_kerberos, seal_func_kerberos
 from .ntlm.auth_authenticate import NTLMAuthAuthenticate
 from .ntlm.auth_challange import NTLMAuthChallenge
 from .ntlm.auth_negotiate import NTLMAuthNegotiate
@@ -59,7 +58,7 @@ class Connection:
             port: int = 135,
             kdc_host: Optional[str] = None,
             kdc_port: int = 88,
-            kerberos_cache_file: Optional[str] = None,
+            kerberos_cache: Optional[KerberosCache] = None,
             loop: Optional[asyncio.AbstractEventLoop] = None):
         self._host = host
         self._port = port
@@ -72,17 +71,8 @@ class Connection:
         self._protocol: Optional[Protocol] = None
         self._timeout: int = 10
         self._namespace: Optional[str] = None
-        self._tgt: Optional[tuple[bytes, bytes]] = None
-        self._tgs: Optional[tuple[bytes, bytes]] = None
-        self._kerberos_cache_file = kerberos_cache_file
-        if kerberos_cache_file:
-            try:
-                with open(kerberos_cache_file, 'rb') as fp:
-                    dump = pickle.load(fp)
-                self._tgt = dump[0], dump[1]
-                self._tgs = dump[2], dump[3]
-            except Exception:
-                logger.warning(f'failed to load from: {kerberos_cache_file}')
+        self._kerberos_cache = kerberos_cache or KerberosCache()
+        self._tgt, self._tgs = self._kerberos_cache.open(logger)
 
     async def connect(self, timeout: int = 10):
         conn = self._loop.create_connection(
@@ -188,9 +178,6 @@ class Connection:
                     proto._client_sign = sign_func(
                         client_signing_key,
                         client_sealing_handle)
-                    proto._server_sign = sign_func(
-                        server_signing_key,
-                        server_sealing_handle)
 
         ntlm_auth_pkg = \
             proto._dcom.get_authenticate_ntlm_pkg(
@@ -213,29 +200,26 @@ class Connection:
                                   self._kdc_host,
                                   self._kdc_port)
 
-        if self._kerberos_cache_file:
-            try:
-                with open(self._kerberos_cache_file, 'wb') as fp:
-                    pickle.dump(self._tgt + self._tgs, fp)
-            except Exception as e:
-                logger.warning(
-                    f'failed to write to: {self._kerberos_cache_file}: {e}')
+        self._kerberos_cache.write(self._tgt, self._tgs, logger)
 
     async def negotiate_kerberos(self) -> Protocol:
-        proto = self._protocol
-        proto._auth_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
-        proto._context_id = 0x0001357f
-
         if not self._domain:
             raise Exception('domain is required for Kerberos authentication')
 
         has_keys = self._tgt is not None and self._tgt is not None
         while True:
+            proto = self._protocol
+            proto._auth_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+            proto._context_id = 0x0001357f
+
             if not has_keys:
                 await self._negotiate_kerberos()
 
             try:
                 await self._bind_kerberos(IID_IRemoteSCMActivator, proto)
+                iface = await self._if_binding(proto,
+                                               bind_func=self._bind_kerberos,
+                                               m_auth_level=proto._auth_level)
             except (AccessDenied, NoNewActiveKey, BindNak) as e:
                 msg = str(e) or type(e).__name__
                 logger.warning(msg)
@@ -248,7 +232,7 @@ class Connection:
             else:
                 break
 
-        return await self._if_binding(proto, bind_func=self._bind_kerberos)
+        return iface
 
     async def _bind_kerberos(self, iid: bytes, proto: Protocol):
         ticket, service_session_key = self._tgs
@@ -278,13 +262,8 @@ class Connection:
             proto._context_id,
             neg_token,
         )
-        try:
-            # My guess is we only need this when we have a new active_key,
-            # but i'm not sure....
-            resp = await proto.get_dcom_response(alter_context_pkg)
-            print('ALTER CTX', resp)
-        except RpcSecPkgError:
-            pass
+        _ = await proto.get_dcom_response(alter_context_pkg)
+
         if proto._auth_level >= RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
             proto._client_sign = sign_func_kerberos(active_key)
             proto._client_seal = seal_func_kerberos(active_key)
@@ -297,7 +276,6 @@ class Connection:
 
         await self._bind_ntlm(IID_IRemoteSCMActivator, proto)
         return await self._if_binding(proto, bind_func=self._bind_ntlm)
-
 
     async def login_ntlm(
             self,
@@ -330,7 +308,10 @@ class Connection:
         self._iid = IID_IWbemServices
         self._namespace = namespace
 
-    async def _if_binding(self, proto: Protocol, bind_func: Callable):
+    async def _if_binding(self,
+                          proto: Protocol,
+                          bind_func: Callable,
+                          m_auth_level: int = RPC_C_AUTHN_LEVEL_PKT_INTEGRITY):
         remote_create_instance = RemoteCreateInstance(
             CLSID_IWbemLevel1Login,
             IID_IWbemLevel1Login)
@@ -382,7 +363,7 @@ class Connection:
 
         proto._auth_level = max(
             interface.scm_reply_info_data.authn_hint,
-            RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
+            m_auth_level)
 
         await bind_func(IID_IWbemLevel1Login, proto)
         return proto

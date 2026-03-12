@@ -95,7 +95,6 @@ class RpcResponse(RpcBaseResp):
                         raise Exception(
                             f'Unsupported auth type: {auth.auth_type}')
                 else:
-                    # Check signing?
                     message = resp
 
                 if auth.auth_pad_length:

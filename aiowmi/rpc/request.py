@@ -42,7 +42,10 @@ import struct
 from typing import TYPE_CHECKING, Optional
 from .common import RpcCommon
 from .cont_elem import RpcContElem
-from .const import MSRPC_REQUEST, PFC_OBJECT_UUID, RPC_C_AUTHN_GSS_NEGOTIATE
+from .const import MSRPC_REQUEST, PFC_OBJECT_UUID
+from .const import RPC_C_AUTHN_LEVEL_PKT_INTEGRITY
+from .const import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+from .const import RPC_C_AUTHN_WINNT, RPC_C_AUTHN_GSS_NEGOTIATE
 from ..rpc.auth_verifier_co import RpcAuthVerifierCo
 from ..tools import pad4
 from ..uuid import uuid_to_bin
@@ -95,7 +98,7 @@ class RpcRequest(RpcCommon):
 
         sealed_message, message_signature = proto._client_seal(
             flags=proto._flags,
-            seq_num=0, #proto._dcom.get_seq_num(),
+            seq_num=proto._dcom.get_seq_num(),
             message_to_sign=message_to_sign,
             message_to_encrypt=message_to_encrypt)
 
@@ -117,6 +120,7 @@ class RpcRequest(RpcCommon):
             uuid = uuid_to_bin(self.uuid_str)
             pdu_data += uuid
 
+        message_to_sign = self._pdu_data
         self.set_pdu_data(pdu_data + self._pdu_data)
 
         auth_verifier, auth_length = RpcAuthVerifierCo.make(
@@ -129,16 +133,33 @@ class RpcRequest(RpcCommon):
         proto._dcom.set_call_id(self)
         self.set_auth_verifier(auth_verifier, auth_length)
 
-        # need the auth verifier, but not the auth data
-        message_to_sign = self.get_data()[:-self.AUTH_SZ]
-
         seq_num = proto._dcom.get_seq_num()
 
-        message_signature = proto._client_sign(
-            flags=proto._flags,
-            seq_num=seq_num,
-            message_to_sign=message_to_sign)
+        if proto._auth_level == RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
+            if proto._auth_type == RPC_C_AUTHN_WINNT:
+                # need the auth verifier, but not the auth data
+                message_to_sign = self.get_data()[:-self.AUTH_SZ]
+                message_signature = proto._client_sign(
+                    flags=proto._flags,
+                    seq_num=seq_num,
+                    message_to_sign=message_to_sign)
+            else:
+                raise Exception(
+                    f'Unsupported auth_type ({proto._auth_type}) '
+                    f'for auth_level ({proto._auth_level})')
+        elif proto._auth_level == RPC_C_AUTHN_LEVEL_PKT_PRIVACY:
+            if proto._auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
+                sealed_message, message_signature = proto._client_sign(
+                    flags=proto._flags,
+                    seq_num=seq_num,
+                    message_to_sign=message_to_sign)
+                self.set_pdu_data(pdu_data + sealed_message)
+            else:
+                raise Exception(
+                    f'Unsupported auth_type ({proto._auth_type}) '
+                    f'for auth_level ({proto._auth_level})')
+        else:
+            raise Exception(f'Unsupported auth_level: {proto._auth_level}')
 
         self.set_auth_data(message_signature)
-
         return self.get_data()

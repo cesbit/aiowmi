@@ -42,7 +42,7 @@ def build_as_req(username: str, domain: str, pa_enc: bytes = b'') -> bytes:
         b'\x1b' + asn1_len(username.encode()) + username.encode()
     )
     cname = (
-        asn1_tag(0, asn1_int(1)) + # NT-PRINCIPAL
+        asn1_tag(0, asn1_int(1)) +  # NT-PRINCIPAL
         asn1_tag(1, asn1_seq(cname_components))
     )
 
@@ -102,18 +102,18 @@ def build_full_as_req(username: str, domain: str, base_key: bytes):
     final_payload = cipher_only + signature
 
     enc_data_content = (
-        asn1_tag(0, asn1_int(18)) +          # etype 18 (AES-256)
+        asn1_tag(0, asn1_int(18)) +         # etype 18 (AES-256)
         asn1_tag(2, asn1_ostr(final_payload))
     )
 
     enc_data = asn1_seq(enc_data_content)
     pa_ts_content = (
-        asn1_tag(1, asn1_int(2)) +       # Type: PA-ENC-TIMESTAMP
-        asn1_tag(2, asn1_ostr(enc_data))   # Value: Octet String
+        asn1_tag(1, asn1_int(2)) +          # Type: PA-ENC-TIMESTAMP
+        asn1_tag(2, asn1_ostr(enc_data))    # Value: Octet String
     )
     pa_ts = asn1_seq(pa_ts_content)
 
-    pa_pac_val = asn1_seq(asn1_tag(0, b'\x01\x01\xff')) # Boolean True
+    pa_pac_val = asn1_seq(asn1_tag(0, b'\x01\x01\xff'))  # Boolean True
     pa_pac_content = (
         asn1_tag(1, asn1_int(128)) +
         asn1_tag(2, asn1_ostr(pa_pac_val))

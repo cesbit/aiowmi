@@ -89,9 +89,9 @@ def get_active_key(auth_bytes: bytes,
                    service_session_key: bytes) -> tuple[bytes, int]:
     active_key, seq_number = None, 0
 
-    if b'\x02\x01\x17' in auth_bytes:
+    etype_idx = auth_bytes.find(b'\x02\x01\x17')
+    if etype_idx >= 0:
         # Read new session key...
-        etype_idx = auth_bytes.find(b'\x02\x01\x17')
         idx_a2 = auth_bytes.find(b'\xa2', etype_idx)
         idx_04 = auth_bytes.find(b'\x04', idx_a2)
 
@@ -100,12 +100,12 @@ def get_active_key(auth_bytes: bytes,
         pos += 1
         if length_byte & 0x80:
             n = length_byte & 0x7f
-            length = int.from_bytes(auth_bytes[pos : pos + n], 'big')
+            length = int.from_bytes(auth_bytes[pos: pos + n], 'big')
             pos += n
         else:
             length = length_byte
 
-        cipher_blob = auth_bytes[pos : pos + length]
+        cipher_blob = auth_bytes[pos: pos + length]
 
         decrypted_raw = \
             decrypt_kerberos_rc4(service_session_key, 12, cipher_blob)
@@ -114,8 +114,7 @@ def get_active_key(auth_bytes: bytes,
         KEY_MARKER = b'\xa1\x12\x04\x10'
         key_idx = asn1_data.find(KEY_MARKER)
         if key_idx != -1:
-            active_key = asn1_data[key_idx + 4 : key_idx + 4 + 16]
-            print('New activation key!', active_key)
+            active_key = asn1_data[key_idx + 4: key_idx + 4 + 16]
 
         SEQ_MARKER = b'\xa3'
         seq_idx = asn1_data.find(SEQ_MARKER)

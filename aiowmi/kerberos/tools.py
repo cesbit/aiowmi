@@ -231,56 +231,11 @@ def read_session_key(data: bytes) -> bytes:
     return session_key
 
 
-#####################################################################
-#
-# All above is tested and working, below needs testing/work
-#
-#####################################################################
-
-
-def aes_encrypt(key, data):
-    # Basic AES-ECB encryption (building block for DK)
-    cipher = Cipher(algorithms.AES(key), modes.ECB())
-    encryptor = cipher.encryptor()
-    return encryptor.update(data) + encryptor.finalize()
-
-
-def derive_kerberos_keys(session_key, usage):
-    """
-    session_key: 16 or 32 bytes from ticket
-    usage: Integer (example: 22 for Seal/Wrap, 24 for Sign/MIC)
-    """
-    # RFC 3961 constants (Labels)
-    # Ke = DK(base_key, usage | 0xAA)
-    # Ki = DK(base_key, usage | 0x55)
-
-    label_enc = struct.pack('>IB', usage, 0xAA) + b'\x00' * 11
-    label_int = struct.pack('>IB', usage, 0x55) + b'\x00' * 11
-
-    # In Kerberos AES, 'constant' for DK label folded to blocksize (16 bytes).
-    # For AES is the constant the label with padding.
-    ke = aes_encrypt(session_key, label_enc.ljust(16, b'\x00'))
-    ki = aes_encrypt(session_key, label_int.ljust(16, b'\x00'))
-    return ke, ki
-
-
-def kerberos_hmac_sha1_96(ki, data):
-    """
-    ki: Integrity Key (16 or 32 bytes)
-    data: GSS header + (padded) payload
-    """
-    # Full HMAC-SHA1
-    full_hmac = hmac.new(ki, data, hashlib.sha1).digest()
-
-    # Shorten to the first 12 bytes (96-bit) (Kerberos AES)
-    return full_hmac[:12]
-
-
 def seal_func_kerberos(session_key: bytes):
     def _kerberos_sealer(
             flags: int,
             seq_num: int,
-            message_to_sign: bytes,    # sign+seal is a single stap
+            message_to_sign: bytes,
             message_to_encrypt: bytes,
             session_key: bytes) -> tuple[bytes, bytes]:
         return gss_wrap_rc4(session_key,
@@ -291,7 +246,7 @@ def seal_func_kerberos(session_key: bytes):
 
 def gss_unwrap_kerberos(session_key: bytes):
     def _kerberos_unwrap(
-            cipher_text: bytes,    # sign+seal is a single stap
+            cipher_text: bytes,
             auth_data: bytes,
             session_key: bytes) -> tuple[bytes, bytes]:
         return gss_unwrap_rc4(session_key,
@@ -300,34 +255,13 @@ def gss_unwrap_kerberos(session_key: bytes):
     return functools.partial(_kerberos_unwrap, session_key=session_key)
 
 
-def sign_func_kerberos(session_key):
-    """
-    Kerberos Signer (MIC) conform RFC 4121.
-    """
-    # Integrity Key (Ki) one time for session
-    # Use 24 for MIC/Sign (Initiator)
-    _, ki = derive_kerberos_keys(session_key, usage=24)
-
-    def _kerberos_signer(flags, seq_num, message_to_sign):
-        # GSS-API MIC Header (RFC 4121, Section 4.2.6.1)
-        # 0404: Token ID for MIC
-        # 00: Flags (0x00 for MIC from initiator)
-        # ffffffffffff: Filler
-        header = struct.pack('>HBB', 0x0404, 0x00, 0xff) + b'\xff' * 5
-
-        # Add sequence number (8 bytes, Big-Endian)
-        header += struct.pack('>Q', seq_num)
-
-        # Calculate HMAC-SHA1-96 from Header + Message
-        # (GSS_GetMIC)
-        full_hmac = hmac.new(ki,
-                             header + message_to_sign,
-                             hashlib.sha1).digest()
-        checksum = full_hmac[:12]  # Truncate to 96 bits
-
-        # Return Header + Checksum
-        # Used as 'auth_data' for RPC-packet
-        return header + checksum
-
-    return _kerberos_signer
-
+def sign_func_kerberos(session_key: bytes):
+    def _kerberos_signer(
+            flags: int,
+            seq_num: int,
+            message_to_sign: bytes,
+            session_key: bytes) -> tuple[bytes, bytes]:
+        return gss_wrap_rc4(session_key,
+                            message_to_sign,
+                            seq_num)
+    return functools.partial(_kerberos_signer, session_key=session_key)

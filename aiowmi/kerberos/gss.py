@@ -29,7 +29,8 @@ def gss_wrap_rc4(session_key: bytes,
 
     k_sign = HMAC.new(session_key, b'signaturekey\0', MD5).digest()
 
-    md5_pre_hash = MD5.new(struct.pack('<L', 13) + token_header + confounder + data).digest()
+    md5_pre_hash = MD5.new(
+        struct.pack('<L', 13) + token_header + confounder + data).digest()
 
     sgn_cksum = HMAC.new(k_sign, md5_pre_hash, MD5).digest()
     sgn_cksum_8 = sgn_cksum[:8]

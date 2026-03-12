@@ -187,6 +187,7 @@ def build_tgs_req(username: str,
 
 
 def extract_ticket(as_rep_bytes):
+    print('as_rep_bytes: ', as_rep_bytes)
     tag_5_idx = as_rep_bytes.find(b'\xa5')
     if tag_5_idx == -1:
         raise ValueError("Tag [5] (Ticket container) not found!")

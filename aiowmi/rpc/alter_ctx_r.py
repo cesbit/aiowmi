@@ -18,9 +18,15 @@ if TYPE_CHECKING:
 # u_int8 pad1[4];           /* restore 4-octet alignment */
 # p_result_list_t p_result_list;
 
+
 class RpcAlterCtxR(RpcBaseResp):
 
-    __slots__ = ('max_xmit_frag', 'max_recv_frag', 'assoc_group_id', 'auth', 'rpc_common')
+    __slots__ = (
+        'max_xmit_frag',
+        'max_recv_frag',
+        'assoc_group_id',
+        'auth',
+        'rpc_common')
 
     ALTER_CTX_R_FMT = '<HHL'
     ALTER_CTX_R_FMT_SIZE = struct.calcsize(ALTER_CTX_R_FMT)

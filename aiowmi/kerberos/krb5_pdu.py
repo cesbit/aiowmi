@@ -2,7 +2,7 @@ import datetime
 import struct
 from .asn1 import asn1_len, asn1_seq, asn1_tag, asn1_int, asn1_gt, asn1_ostr
 from .tools import encrypt_kerberos_rc4
-from ..dcom_const import  NDR_TransferSyntaxIdentifier
+from ..dcom_const import NDR_TransferSyntaxIdentifier
 from ..rpc.const import RPC_C_AUTHN_GSS_NEGOTIATE
 
 

@@ -44,8 +44,10 @@ class RpcBindNak(RpcBaseResp):
         windows_errors = {
             0x0501: "RPC_S_PROTSEQ_NOT_SUPPORTED (Security flags denied)",
             0x0005: "ERROR_ACCESS_DENIED (Access denied)",
-            0x06d3: "RPC_S_AUTHN_LEVEL_LOW (Auth level too low, PKT_PRIVACY required)",
-            0x1c01000b: "RPC_S_WRONG_KIND_OF_AUTH (Wrong authentication method)"
+            0x06d3:
+            "RPC_S_AUTHN_LEVEL_LOW (Auth level too low, PKT_PRIVACY required)",
+            0x1c01000b:
+            "RPC_S_WRONG_KIND_OF_AUTH (Wrong authentication method)"
         }
 
         reason_text = provider_reasons.get(provider_reason_code,
