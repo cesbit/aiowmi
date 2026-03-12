@@ -42,14 +42,11 @@ def aes_string_to_key(password, salt):
                                32)
     constant = nfold_for_kerberos()
 
-    # Gebruik AES-256 CBC met IV=0
     cipher = Cipher(algorithms.AES(tkey), modes.CBC(b'\x00' * 16))
 
-    # Deel 1 van de definitieve sleutel
     encryptor1 = cipher.encryptor()
     part1 = encryptor1.update(constant) + encryptor1.finalize()
 
-    # Deel 2 van de definitieve sleutel (met part1 als nieuwe input)
     encryptor2 = cipher.encryptor()
     part2 = encryptor2.update(part1) + encryptor2.finalize()
 
