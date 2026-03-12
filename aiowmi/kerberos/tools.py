@@ -7,8 +7,8 @@ import struct
 from functools import reduce
 from pyasn1.codec.der import decoder, encoder
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from Cryptodome.Cipher import AES
-from Cryptodome.Hash import HMAC, SHA1, MD5
+from Crypto.Cipher import AES
+from Crypto.Hash import HMAC, SHA1, MD5
 from .rc4 import RC4
 from .gss import gss_wrap_rc4, gss_unwrap_rc4
 from ..exceptions import KerberosErr
