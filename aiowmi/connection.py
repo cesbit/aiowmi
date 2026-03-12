@@ -214,7 +214,10 @@ class Connection:
             proto._context_id = 0x0001357f
 
             if not has_keys:
+                logger.debug('Start Kerberos negotion for TGT/TGS')
                 await self._negotiate_kerberos()
+            else:
+                logger.debug('Using Kerberos TGT/TGS from cache')
 
             try:
                 await self._bind_kerberos(IID_IRemoteSCMActivator, proto)

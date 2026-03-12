@@ -24,7 +24,7 @@ async def send_kerberos_packet(packet_bytes: bytes,
         return response_data
 
     except Exception as e:
-        logger.error(f"error writing to kdc: {e}")
+        logger.error(f"Error writing to kdc: {e}")
         return None
     finally:
         writer.close()

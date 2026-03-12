@@ -32,7 +32,7 @@ def dt_from_str(s: str) -> Union[datetime, timedelta]:
             )
         except Exception as e:
             logger.debug(
-                f'invalid interval `{s}` ({e}); return timedelta(0)')
+                f'Invalid interval `{s}` ({e}); return timedelta(0)')
             td = timedelta(0)
         return td
 
@@ -53,7 +53,7 @@ def dt_from_str(s: str) -> Union[datetime, timedelta]:
 
     except Exception as e:
         logger.debug(
-            f'invalid datetime `{s}` ({e}); '
+            f'Invalid datetime `{s}` ({e}); '
             'return datetime.fromtimestamp(0)')
         dt = datetime.fromtimestamp(0)
 

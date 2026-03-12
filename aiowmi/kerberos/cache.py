@@ -23,14 +23,14 @@ class KerberosCache:
                 Optional[tuple[bytes, bytes]],
                 Optional[tuple[bytes, bytes]]]:
         if self._file_path is not None and \
-                self._tgs is None or self._tgt is None:
+                (self._tgs is None or self._tgt is None):
             try:
                 with open(self._file_path, 'rb') as fp:
                     dump = pickle.load(fp)
                 self._tgt = dump[0], dump[1]
                 self._tgs = dump[2], dump[3]
             except Exception:
-                logger.warning(f'failed to load from: {self._file_path}')
+                logger.warning(f'Failed to load from: {self._file_path}')
 
         return self._tgt, self._tgs
 
@@ -46,4 +46,4 @@ class KerberosCache:
                     pickle.dump(self._tgt + self._tgs, fp)
             except Exception as e:
                 logger.warning(
-                    f'failed to write to: {self._file_path}: {e}')
+                    f'Failed to write to: {self._file_path}: {e}')

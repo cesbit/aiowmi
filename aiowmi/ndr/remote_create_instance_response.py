@@ -64,7 +64,7 @@ class RemoteCreateInstanceResponse(NdrInterface):
         if self._binding is None:
             raise NoBindingException('no network binding has been found')
 
-        logger.debug(f'selected binding: {self._binding}')
+        logger.debug(f'Selected binding: {self._binding}')
         return self._binding
 
     def get_ipid(self) -> int:
