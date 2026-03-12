@@ -6,6 +6,7 @@ from .asn1 import (
 from .kdc import send_kerberos_packet
 from .tools import decrypt_kerberos_aes_cts, encrypt_kerberos_aes_cts
 from .tools import read_session_key
+from .asn1 import get_asn1_len
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from datetime import datetime, timezone
 from pyasn1.codec.der import decoder, encoder
@@ -186,20 +187,33 @@ def build_tgs_req(username: str,
     return b'\x6c' + asn1_len(inner_seq) + inner_seq
 
 
-def extract_ticket(as_rep_bytes):
-    print('as_rep_bytes: ', as_rep_bytes)
-    tag_5_idx = as_rep_bytes.find(b'\xa5')
-    if tag_5_idx == -1:
-        raise ValueError("Tag [5] (Ticket container) not found!")
-    print('OFFSET TAG_5_IDX: ', tag_5_idx)
-    ticket_start = as_rep_bytes.find(b'\x61', tag_5_idx)
-    print('OFFSET TICKET_START: ', ticket_start)
-    len_bytes = as_rep_bytes[ticket_start + 2: ticket_start + 4]
-    ticket_len = int.from_bytes(len_bytes, byteorder='big')
-    total_len = ticket_len + 4
-    ticket_payload = as_rep_bytes[ticket_start: ticket_start + total_len]
+def extract_ticket(data):
+    pos = 0
+    if data[pos] not in [0x6b, 0x6d]:
+        raise ValueError("Invalid Kerberos answer")
 
-    return ticket_payload
+    _, len_size = get_asn1_len(data, pos + 1)
+    pos += 1 + len_size  # AS-REP
+
+    # Skip SEQUENCE tag (0x30)
+    if data[pos] != 0x30:
+        raise ValueError("SEQUENCE expected")
+    _, len_size = get_asn1_len(data, pos + 1)
+    pos += 1 + len_size
+
+    while pos < len(data):
+        tag = data[pos]
+        content_len, len_size = get_asn1_len(data, pos + 1)
+
+        if tag == 0xa5:
+            ticket_start = pos + 1 + len_size
+            tkt_len, tkt_len_size = get_asn1_len(data, ticket_start + 1)
+            total_tkt_size = 1 + tkt_len_size + tkt_len
+            return data[ticket_start: ticket_start + total_tkt_size]
+
+        pos += 1 + len_size + content_len
+
+    raise ValueError("Ticket tag [5] not found in sequence")
 
 
 def get_service_key(resp_bytes: bytes,

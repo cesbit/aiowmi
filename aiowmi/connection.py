@@ -1,7 +1,7 @@
 import asyncio
 from typing import Optional, Callable
 from Crypto.Cipher import ARC4
-from .exceptions import RpcSecPkgError, AccessDenied, NoNewActiveKey, BindNak
+from .exceptions import AccessDenied, NoNewActiveKey, BindNak
 from .kerberos.ap_req import build_ap_req, wrap_gss_kerberos, get_active_key
 from .kerberos.cache import KerberosCache
 from .kerberos.krb5_pdu import get_neg_token, build_alter_context
@@ -205,7 +205,8 @@ class Connection:
     async def negotiate_kerberos(self) -> Protocol:
         if not self._domain:
             raise Exception('domain is required for Kerberos authentication')
-
+        MAX_ATTEMPTS = 2
+        attempt = 0
         has_keys = self._tgt is not None and self._tgt is not None
         while True:
             proto = self._protocol
@@ -222,11 +223,14 @@ class Connection:
                                                m_auth_level=proto._auth_level)
             except (AccessDenied, NoNewActiveKey, BindNak) as e:
                 msg = str(e) or type(e).__name__
-                logger.warning(msg)
-                if has_keys:
+                logger.warning(f'{msg} (attempt {attempt}/{MAX_ATTEMPTS})')
+                if attempt <= MAX_ATTEMPTS:
+                    if attempt:
+                        has_keys = False  # attemp to get new keys
                     self.close()
-                    await self.connect()
-                    has_keys = False  # attemp to get new keys
+                    await asyncio.sleep(0.5 * attempt)
+                    attempt += 1
+                    await self.connect(timeout=self._timeout)
                     continue
                 raise
             else:

@@ -26,7 +26,6 @@ class RpcFault(RpcBaseResp):
         self.rpc_common = rpc_common
         body_data = data[RpcCommon.COMMON_SIZE:]
         self.status = 0x00000721   # RPC_S_SEC_PKG_ERROR (most likely)
-
         if len(body_data) >= self.FAULT_FMT_SIZE:
             _, _, self.status = struct.unpack(self.FAULT_FMT, body_data[:12])
         elif len(body_data) >= 4:

@@ -1,23 +1,32 @@
 from .as_req import build_as_req, build_full_as_req
 from .kdc import send_kerberos_packet
+from .asn1 import get_asn1_len
 import hashlib
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 
 def extract_kerberos_salt(error_data: bytes) -> str:
-    """
-    Extract salt from KRB-ERROR (0x7e) response.
-    PA-ETYPE-INFO2 (Tag 19).
-    """
-    try:
-        print('error_data: ', error_data)
-        offset = error_data.find(b'\x1b\x1c') + 2
-        print('OFFSET SALT (Expected 148): ', offset)
-        salt = error_data[offset:offset+28].decode('utf-8')
-        return salt
-    except Exception:
-        pass
-    raise Exception('failed to get salt')
+    if error_data[0] != 0x7e:
+        raise ValueError("Invalid KRB-ERROR packet")
+
+    # find start of container
+    e_data_idx = error_data.find(b'\xac')
+    if e_data_idx == -1:
+        raise ValueError("e-data (Tag 12) niet gevonden")
+
+    pos = e_data_idx
+    _, len_size = get_asn1_len(error_data, pos + 1)
+    pos += 1 + len_size
+
+    salt_tag_idx = error_data.find(b'\x1b\x1c', pos)
+    if salt_tag_idx == -1:
+        raise ValueError("Salt (GeneralString) not found")
+
+    salt_len, salt_len_size = get_asn1_len(error_data, salt_tag_idx + 1)
+    salt_start = salt_tag_idx + 1 + salt_len_size
+
+    salt_bytes = error_data[salt_start: salt_start + salt_len]
+    return salt_bytes.decode('utf-8')
 
 
 def nfold_for_kerberos():

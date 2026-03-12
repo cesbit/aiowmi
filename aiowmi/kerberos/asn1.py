@@ -48,3 +48,12 @@ def asn1_gt(val: bytes) -> bytes:
 
 def asn1_ostr(val: bytes) -> bytes:
     return b'\x04' + asn1_len(val) + val
+
+
+def get_asn1_len(data: bytes, pos: int) -> tuple[int, int]:
+    """Read ASN.1 lengte from data."""
+    b = data[pos]
+    if b < 128:
+        return b, 1
+    num_bytes = b & 0x7f
+    return int.from_bytes(data[pos+1: pos+1+num_bytes], 'big'), num_bytes + 1
