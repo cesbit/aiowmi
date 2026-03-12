@@ -150,4 +150,12 @@ kcache = KerberosCache('/tmp/kcache.bin')
 kcache = KerberosCache()
 
 conn = Connection(..., kerberos_cache=kcache)
+# If different from the host, the kdc_host address may be provided
+# for the Kerberos Key Distribution Center (KDC).
+#
+# Once connected (await conn.connect()), make the following negotiation call:
+#   service = await conn.negotiate_kerberos()
+
 ```
+
+
