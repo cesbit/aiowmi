@@ -1,6 +1,5 @@
 from .dcom_const import IID_IRemoteSCMActivator
 from .dcom_const import NDR_TransferSyntaxIdentifier
-from .exceptions import DcomException
 from .ntlm.auth_authenticate import NTLMAuthAuthenticate
 from .ntlm.auth_negotiate import NTLMAuthNegotiate
 from .rpc.auth_verifier_co import RpcAuthVerifierCo
@@ -15,9 +14,7 @@ from .rpc.const import MSRPC_BINDACK
 from .rpc.const import MSRPC_BINDNAK
 from .rpc.const import MSRPC_FAULT
 from .rpc.const import MSRPC_RESPONSE
-from .rpc.const import RPC_C_AUTHN_GSS_KERBEROS
 from .rpc.const import RPC_C_AUTHN_GSS_NEGOTIATE
-from .rpc.const import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from .rpc.const import RPC_C_AUTHN_WINNT
 from .rpc.cont_elem import RpcContElem
 from .rpc.fault import RpcFault
