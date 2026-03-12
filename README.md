@@ -8,12 +8,12 @@ Windows Management Interface connector using asyncio for the Python language.
 
 **Supports:**
 - [x] NTLM Authentication
+- [x] Kerberos Authentication
 - [x] WMI Query (IWbemServices_ExecQuery)
 - [x] Parsing of basic WMI Objects (int/float/str/datetime/array/references)
 - [x] Optimized queries using the SmartEnum implementation
 
 **Todo:**
-- [ ] Kerberos Authentication
 - [ ] Async WMI Query (IWbemServices_ExecQueryAsync)
 - [ ] Other DCOM/RPC/WMI calls?
 - [ ] Support for WMI Methods?
@@ -129,4 +129,25 @@ if __name__ == '__main__':
     asyncio.run(main())
 
 
+```
+
+
+## Kerberos
+
+For Kerberos Authentication, make sure to use a FQDN as hostname and domain
+is no longer optional.
+
+For caching TGT and TGS, a kerberos cache per connection can be kept.
+
+```python
+from aiowmi.connection import Connection
+from aiowmi.kerberos.cache import KerberosCache
+
+# Example file cache (tgt, tgs are stored and loaded from file)
+kcache = KerberosCache('/tmp/kcache.bin')
+
+# Example mem-cache (tgt, tgs are stored in the cache which can be re-used)
+kcache = KerberosCache()
+
+conn = Connection(..., kerberos_cache=kcache)
 ```

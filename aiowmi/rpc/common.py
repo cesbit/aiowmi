@@ -1,5 +1,5 @@
 import struct
-from .const import MSRPC_REQUEST, PFC_FIRST_FRAG, PFC_LAST_FRAG
+from .const import PFC_FIRST_FRAG, PFC_LAST_FRAG
 
 # typedef struct {
 #   u_int8 rpc_vers = 5;        /* 00:01 RPC version */
@@ -74,9 +74,13 @@ class RpcCommon:
         self.frag_length += len(auth_verifier)
 
     def set_auth_data(self, auth_data: bytes):
-        assert self.auth_length == len(auth_data)
         self._auth_verifier = \
             self._auth_verifier[:-self.auth_length] + auth_data
+        # we now can overwrite the auth_data, if signed (NTLM), this must stay
+        # the same length as it is part of signed
+        n = len(auth_data)
+        self.frag_length += (n - self.auth_length)
+        self.auth_length = len(auth_data)
 
     def get_common_data(self) -> bytes:
         return struct.pack(

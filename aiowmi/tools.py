@@ -101,16 +101,36 @@ def encrypted_session_key(key_exchange_key, exported_session_key):
 
 def read_string_bindings(data: bytes, offset: int) -> Tuple[list, int]:
     bindings = []
+    data_len = len(data)
 
-    while True:
+    while offset + 2 <= data_len:
         w_tower_id, = struct.unpack_from('<H', data, offset=offset)
-        offset += 2  # size (<H)
+        offset += 2
+
         if w_tower_id == 0:
-            break
-        end = data.find(b'\x00\x00', offset)
-        end += (end - offset) % 2 + 2
-        raw = data[offset: end]
-        bindings.append((w_tower_id, raw.decode('utf-16le')))
+            return bindings, offset
+
+        current_pos = offset
+        found = False
+        while current_pos + 1 < data_len:
+            if data[current_pos:current_pos+2] == b'\x00\x00':
+                end = current_pos + 2
+                found = True
+                break
+            current_pos += 2
+
+        if not found:
+            raise ValueError(
+                'Malformed NDR: String binding terminator not found')
+
+        raw = data[offset:end]
+        try:
+            decoded = raw.decode('utf-16le').rstrip('\x00')
+            bindings.append((w_tower_id, decoded))
+        except UnicodeDecodeError:
+            raise ValueError(
+                'Malformed NDR: Invalid UTF-16 encoding in string binding')
+
         offset = end
 
     return bindings, offset

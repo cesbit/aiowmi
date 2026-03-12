@@ -10,6 +10,7 @@ from ..uuid import bin_to_uuid_ver
 from .baseresp import RpcBaseResp
 from .const import RPC_C_AUTHN_LEVEL_PKT_PRIVACY
 from .const import RPC_C_AUTHN_WINNT
+from .const import RPC_C_AUTHN_GSS_NEGOTIATE
 from ..exceptions import wbem_exception
 
 
@@ -86,8 +87,14 @@ class RpcResponse(RpcBaseResp):
                             seq_num=proto._dcom._seq_num,
                             message_to_sign=resp,
                             message_to_encrypt=resp)
+                    elif auth.auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
+                        message = proto._server_seal(
+                            cipher_text=resp,
+                            auth_data=auth.auth_value)
+                    else:
+                        raise Exception(
+                            f'Unsupported auth type: {auth.auth_type}')
                 else:
-                    # Check signing?
                     message = resp
 
                 if auth.auth_pad_length:

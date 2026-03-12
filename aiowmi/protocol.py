@@ -27,11 +27,11 @@ class Protocol(asyncio.Protocol):
         self._interface: NdrInterface = None
         self._auth_type: int = None
         self._auth_level: int = None
+        self._context_id: int = 0
         self._flags = None
         self._client_seal: Optional[Callable] = None
         self._client_sign: Optional[Callable] = None
         self._server_seal: Optional[Callable] = None
-        self._server_sign: Optional[Callable] = None
         self._iid = None
 
     @staticmethod
@@ -64,8 +64,7 @@ class Protocol(asyncio.Protocol):
         buffers for each request since parts of the requests may be received
         within diffrent package fragments.
         """
-        # print('RECV!!')
-        # print(data)
+        # print(f'RECV!!: ', data)
         if self._buf is None:
             data = self._tmp + data
 
@@ -116,7 +115,7 @@ class Protocol(asyncio.Protocol):
             self.data_received(more)
 
     def write(self, data: bytes):
-        call_id, = struct.unpack_from('<L', data, offset=12)
+        # call_id, = struct.unpack_from('<L', data, offset=12)
         # print('SEND!! Call Id:', call_id)
         # print(data)
         self._transport.write(data)
@@ -156,7 +155,6 @@ class Protocol(asyncio.Protocol):
         try:
             pdu_data_list = []
             self.write(request)
-
             data = await asyncio.wait_for(req.fut, timeout)
 
             while True:

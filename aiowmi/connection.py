@@ -1,13 +1,19 @@
 import asyncio
 from typing import Optional, Callable
 from Crypto.Cipher import ARC4
-from .protocol import Protocol
-from .dcom import Dcom
-from .rpc.bind_ack import RpcBindAck
-from .ntlm.auth_challange import NTLMAuthChallenge
+from .exceptions import AccessDenied, NoNewActiveKey, BindNak
+from .kerberos.ap_req import build_ap_req, wrap_gss_kerberos, get_active_key
+from .kerberos.cache import KerberosCache
+from .kerberos.krb5_pdu import get_neg_token, build_alter_context
+from .kerberos.tgs import get_tgs
+from .kerberos.tgt import get_tgt
+from .kerberos.tools import gss_unwrap_kerberos
+from .kerberos.tools import sign_func_kerberos, seal_func_kerberos
 from .ntlm.auth_authenticate import NTLMAuthAuthenticate
+from .ntlm.auth_challange import NTLMAuthChallenge
 from .ntlm.auth_negotiate import NTLMAuthNegotiate
 from .ntlm.tools import seal_func, sign_func
+from .protocol import Protocol
 from .tools import get_rangom_bytes, encrypted_session_key
 from .rpc.const import (
     RPC_C_AUTHN_LEVEL_CONNECT,
@@ -32,6 +38,7 @@ from .dcom_const import (
     IID_IWbemLevel1Login,
     IID_IWbemServices,
 )
+from .rpc.bind_ack import RpcBindAck
 from .rpc.request import RpcRequest
 from .rpc.response import RpcResponse
 from .ndr.remote_create_instance_response import RemoteCreateInstanceResponse
@@ -49,16 +56,23 @@ class Connection:
             password: str,
             domain: str = '',
             port: int = 135,
+            kdc_host: Optional[str] = None,
+            kdc_port: int = 88,
+            kerberos_cache: Optional[KerberosCache] = None,
             loop: Optional[asyncio.AbstractEventLoop] = None):
         self._host = host
         self._port = port
         self._username = username
         self._password = password
         self._domain = domain
+        self._kdc_host = kdc_host or self._host
+        self._kdc_port = kdc_port
         self._loop = asyncio.get_event_loop() if loop is None else loop
         self._protocol: Optional[Protocol] = None
         self._timeout: int = 10
         self._namespace: Optional[str] = None
+        self._kerberos_cache = kerberos_cache or KerberosCache()
+        self._tgt, self._tgs = self._kerberos_cache.open(logger)
 
     async def connect(self, timeout: int = 10):
         conn = self._loop.create_connection(
@@ -84,14 +98,15 @@ class Connection:
             return 'disconnected'
         return self._protocol.connection_info()
 
-    async def _bind(self, iid: bytes, proto: Protocol):
+    async def _bind_ntlm(self, iid: bytes, proto: Protocol):
         ntlm_auth_negotiate = NTLMAuthNegotiate()
 
         ntlm_negotiate_pkg = \
             proto._dcom.get_negotiate_ntlm_pkg(
                 iid,
                 ntlm_auth_negotiate,
-                proto._auth_level)
+                proto._auth_level,
+                proto._context_id)
 
         rpc_bind_ack: RpcBindAck = \
             await proto.get_dcom_response(
@@ -163,23 +178,144 @@ class Connection:
                     proto._client_sign = sign_func(
                         client_signing_key,
                         client_sealing_handle)
-                    proto._server_sign = sign_func(
-                        server_signing_key,
-                        server_sealing_handle)
 
         ntlm_auth_pkg = \
             proto._dcom.get_authenticate_ntlm_pkg(
                 ntlm_auth_authenticate,
-                proto._auth_level)
+                proto._auth_level,
+                proto._context_id)
 
         proto.write(ntlm_auth_pkg)
+
+    async def _negotiate_kerberos(self):
+        self._tgt = await get_tgt(self._username,
+                                  self._password,
+                                  self._domain,
+                                  self._kdc_host,
+                                  self._kdc_port)
+        self._tgs = await get_tgs(self._username,
+                                  self._domain,
+                                  self._host,
+                                  *self._tgt,
+                                  self._kdc_host,
+                                  self._kdc_port)
+
+        self._kerberos_cache.write(self._tgt, self._tgs, logger)
+
+    async def negotiate_kerberos(self) -> Protocol:
+        if not self._domain:
+            raise Exception('domain is required for Kerberos authentication')
+        MAX_ATTEMPTS = 2
+        attempt = 0
+        has_keys = self._tgt is not None and self._tgt is not None
+        while True:
+            proto = self._protocol
+            proto._auth_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+            proto._context_id = 0x0001357f
+
+            if not has_keys:
+                await self._negotiate_kerberos()
+
+            try:
+                await self._bind_kerberos(IID_IRemoteSCMActivator, proto)
+                iface = await self._if_binding(proto,
+                                               bind_func=self._bind_kerberos,
+                                               m_auth_level=proto._auth_level)
+            except (AccessDenied, NoNewActiveKey, BindNak) as e:
+                msg = str(e) or type(e).__name__
+                logger.warning(f'{msg} (attempt {attempt}/{MAX_ATTEMPTS})')
+                if attempt <= MAX_ATTEMPTS:
+                    if attempt:
+                        has_keys = False  # attemp to get new keys
+                    self.close()
+                    await asyncio.sleep(0.5 * attempt)
+                    attempt += 1
+                    await self.connect(timeout=self._timeout)
+                    continue
+                raise
+            else:
+                break
+
+        return iface
+
+    async def _bind_kerberos(self, iid: bytes, proto: Protocol):
+        ticket, service_session_key = self._tgs
+        ap_req = build_ap_req(self._username,
+                              self._domain,
+                              ticket, service_session_key)
+        auth_value = wrap_gss_kerberos(ap_req)
+        bind_pkg = proto._dcom.get_bind_kerberos_pkg(
+            iid,
+            auth_value,
+            proto._auth_level,
+            proto._context_id,
+        )
+        rpc_bind_ack = await proto.get_dcom_response(bind_pkg)
+        active_key, seq_number = get_active_key(rpc_bind_ack.auth.auth_value,
+                                                service_session_key)
+        if active_key is None:
+            raise NoNewActiveKey()
+        proto._auth_type = rpc_bind_ack.auth.auth_type
+        proto._auth_level = rpc_bind_ack.auth.auth_level
+
+        neg_token = get_neg_token(service_session_key, seq_number)
+        alter_context_pkg = build_alter_context(
+            iid,
+            proto._dcom.get_new_call_id(),
+            proto._auth_level,
+            proto._context_id,
+            neg_token,
+        )
+        _ = await proto.get_dcom_response(alter_context_pkg)
+
+        if proto._auth_level >= RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
+            proto._client_sign = sign_func_kerberos(active_key)
+            proto._client_seal = seal_func_kerberos(active_key)
+            proto._server_seal = gss_unwrap_kerberos(active_key)
 
     async def negotiate_ntlm(self) -> Protocol:
         proto = self._protocol
         proto._auth_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+        proto._context_id = 4242
 
-        await self._bind(IID_IRemoteSCMActivator, proto)
+        await self._bind_ntlm(IID_IRemoteSCMActivator, proto)
+        return await self._if_binding(proto, bind_func=self._bind_ntlm)
 
+    async def login_ntlm(
+            self,
+            proto: Protocol,
+            namespace: str = 'root/cimv2'):
+        if not namespace.startswith('//'):
+            namespace = '//./' + namespace
+        ntlm_login = NTLMLogin(namespace)
+        ntlm_login_pkg = ntlm_login.get_data()
+        interface = self._protocol._interface
+
+        request = RpcRequest(op_num=6, uuid_str=interface.get_ipid())
+
+        request.set_pdu_data(ntlm_login_pkg)
+
+        request_pkg = request.sign_data(proto)
+
+        rpc_response: RpcResponse = \
+            await proto.get_dcom_response(
+                request_pkg,
+                size=RpcResponse.SIZE,
+                timeout=self._timeout)
+
+        message = rpc_response.get_message(proto)
+
+        ntlm_login_resp = NTLMLoginResponse(message)
+
+        proto._interface = ntlm_login_resp
+        proto._interface.scm_reply_info_data = interface.scm_reply_info_data
+        self._iid = IID_IWbemServices
+        self._namespace = namespace
+
+    async def _if_binding(self,
+                          proto: Protocol,
+                          bind_func: Callable,
+                          m_auth_level: int = RPC_C_AUTHN_LEVEL_PKT_INTEGRITY):
         remote_create_instance = RemoteCreateInstance(
             CLSID_IWbemLevel1Login,
             IID_IWbemLevel1Login)
@@ -231,39 +367,7 @@ class Connection:
 
         proto._auth_level = max(
             interface.scm_reply_info_data.authn_hint,
-            RPC_C_AUTHN_LEVEL_PKT_INTEGRITY)
+            m_auth_level)
 
-        await self._bind(IID_IWbemLevel1Login, proto)
-
+        await bind_func(IID_IWbemLevel1Login, proto)
         return proto
-
-    async def login_ntlm(
-            self,
-            proto: Protocol,
-            namespace: str = 'root/cimv2'):
-        if not namespace.startswith('//'):
-            namespace = '//./' + namespace
-        ntlm_login = NTLMLogin(namespace)
-        ntlm_login_pkg = ntlm_login.get_data()
-        interface = self._protocol._interface
-
-        request = RpcRequest(op_num=6, uuid_str=interface.get_ipid())
-
-        request.set_pdu_data(ntlm_login_pkg)
-
-        request_pkg = request.sign_data(proto)
-
-        rpc_response: RpcResponse = \
-            await proto.get_dcom_response(
-                request_pkg,
-                size=RpcResponse.SIZE,
-                timeout=self._timeout)
-
-        message = rpc_response.get_message(proto)
-
-        ntlm_login_resp = NTLMLoginResponse(message)
-
-        proto._interface = ntlm_login_resp
-        proto._interface.scm_reply_info_data = interface.scm_reply_info_data
-        self._iid = IID_IWbemServices
-        self._namespace = namespace

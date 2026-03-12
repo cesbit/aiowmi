@@ -9,6 +9,7 @@ from .cont_elem import RpcContElem
 from ..uuid import bin_to_uuid_ver
 from .baseresp import RpcBaseResp
 from ..exceptions import rpc_exception
+from ..logger import logger
 
 
 if TYPE_CHECKING:
@@ -16,15 +17,20 @@ if TYPE_CHECKING:
 
 
 class RpcFault(RpcBaseResp):
+    __slots__ = ('status', 'rpc_common')
 
-    __slots__ = ('rpc_common', 'error_code')
-
-    FAULT_FMT = '<L'
+    FAULT_FMT = '<III'
+    FAULT_FMT_SIZE = struct.calcsize(FAULT_FMT)
 
     def __init__(self, dcom: Dcom, rpc_common: RpcCommon, data: bytes):
         self.rpc_common = rpc_common
+        body_data = data[RpcCommon.COMMON_SIZE:]
+        self.status = 0x00000721   # RPC_S_SEC_PKG_ERROR (most likely)
+        if len(body_data) >= self.FAULT_FMT_SIZE:
+            _, _, self.status = struct.unpack(self.FAULT_FMT, body_data[:12])
+        elif len(body_data) >= 4:
+            alloc_hint = struct.unpack('<I', body_data[:4])[0]
+            logger.debug(f"RPC Fault received with alloc_hint: {alloc_hint}")
 
     def throw(self):
-        data, n = self.get_pdu_data_list()[0]
-        errcode, = struct.unpack_from(self.FAULT_FMT, data)
-        raise rpc_exception(errcode)
+        raise rpc_exception(self.status)
