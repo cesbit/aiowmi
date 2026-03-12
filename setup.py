@@ -27,7 +27,8 @@ setup(
         'https://github.com/cesbit/'
         'aiowmi/tarball/v{}'.format(version)),
     install_requires=[
-        'pycryptodome>=3.14.0'
+        'pycryptodome>=3.14.0',
+        'pyasn1'
     ],
     keywords=['WMI', 'Monitoring'],
     classifiers=[
