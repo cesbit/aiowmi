@@ -11,6 +11,7 @@ from Cryptodome.Cipher import AES
 from Cryptodome.Hash import HMAC, SHA1, MD5
 from .rc4 import RC4
 from .gss import gss_wrap_rc4, gss_unwrap_rc4
+from ..exceptions import KerberosErr
 
 
 def _nfold(ba, nbytes):
@@ -265,3 +266,37 @@ def sign_func_kerberos(session_key: bytes):
                             message_to_sign,
                             seq_num)
     return functools.partial(_kerberos_signer, session_key=session_key)
+
+
+KDC_ERR_PREAUTH_REQUIRED = 25
+KRB_ERRORS = {
+    6:  "KDC_ERR_C_PRINCIPAL_UNKNOWN (Username not found)",
+    7:  "KDC_ERR_S_PRINCIPAL_UNKNOWN (Service not found; Must use FQDN !!)",
+    18: "KDC_ERR_CLIENT_REVOKED (Account blocked)",
+    24: "KDC_ERR_PREAUTH_FAILED (Wrong password)",
+    31: "KDC_ERR_S_PRINCIPAL_UNKNOWN (Service SPN not found)",
+    60: "KDC_ERR_WRONG_REALM (Wrong domain name)"
+}
+
+
+def parse_krb_error(data: bytes):
+    if data[0] != 0x7e:
+        return
+
+    code = -1
+    pos = 2 if data[1] < 128 else 2 + (data[1] & 0x7f)
+    pos += 2 if data[pos+1] < 128 else 2 + (data[pos+1] & 0x7f)
+
+    while pos < len(data):
+        tag = data[pos]
+        length = data[pos+1]
+        if tag == 0xa6:
+            code = data[pos + 4]
+            if code == KDC_ERR_PREAUTH_REQUIRED:
+                return
+            break
+        pos += 2 + length
+
+    raise KerberosErr(
+        KRB_ERRORS.get(code, f"Unknown Kerberos Error: {code}")
+    )

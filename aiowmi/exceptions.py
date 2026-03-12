@@ -2,6 +2,10 @@ from . import const
 from .rpc import const as rpc_const
 
 
+class KerberosErr(Exception):
+    pass
+
+
 class BindNak(Exception):
     pass
 

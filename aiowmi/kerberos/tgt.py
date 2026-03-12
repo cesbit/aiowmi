@@ -1,8 +1,9 @@
+import hashlib
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from .as_req import build_as_req, build_full_as_req
 from .kdc import send_kerberos_packet
 from .asn1 import get_asn1_len
-import hashlib
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from .tools import parse_krb_error
 
 
 def extract_kerberos_salt(error_data: bytes) -> str:
@@ -59,8 +60,10 @@ async def get_tgt(username: str, password: str, domain: str,
                   kdc_host: str, kdc_port: int = 88) -> tuple[bytes, bytes]:
     as_req = build_as_req(username, domain)
     resp = await send_kerberos_packet(as_req, kdc_host, kdc_port)
+    parse_krb_error(resp)
     salt = extract_kerberos_salt(resp)
     base_key = aes_string_to_key(password, salt)
     full_as_req = build_full_as_req(username, domain, base_key)
     as_res_bytes = await send_kerberos_packet(full_as_req, kdc_host, kdc_port)
+    parse_krb_error(as_res_bytes)
     return as_res_bytes, base_key

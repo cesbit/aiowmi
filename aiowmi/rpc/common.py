@@ -1,5 +1,5 @@
 import struct
-from .const import PFC_FIRST_FRAG, PFC_LAST_FRAG, RPC_C_AUTHN_GSS_NEGOTIATE
+from .const import PFC_FIRST_FRAG, PFC_LAST_FRAG
 
 # typedef struct {
 #   u_int8 rpc_vers = 5;        /* 00:01 RPC version */

@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from pyasn1.codec.ber import decoder, encoder
 from .asn1 import asn1_len, asn1_tag, asn1_gt, asn1_int, asn1_ostr
 from .tools import encrypt_kerberos_rc4, decrypt_kerberos_rc4
 from .const import OID_KERBEROS_V5, OID_MS_LEGACY_KRB, OID_SPNEGO

@@ -1,17 +1,15 @@
-import struct
 import random
 from .asn1 import (
     asn1_len, asn1_tag, asn1_seq, asn1_gs, asn1_ostr, asn1_int, asn1_gt
 )
 from .kdc import send_kerberos_packet
 from .tools import decrypt_kerberos_aes_cts, encrypt_kerberos_aes_cts
-from .tools import read_session_key
+from .tools import read_session_key, parse_krb_error
 from .asn1 import get_asn1_len
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from datetime import datetime, timezone
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ, tag, namedtype, char
-import struct
 
 
 def aes_cts_encrypt(key, plaintext):
@@ -264,5 +262,6 @@ async def get_tgs(username: str, domain: str, host: str,
                             tgs_ticket,
                             ("host", host))
     as_res_bytes = await send_kerberos_packet(tgs_req, kdc_host, kdc_port)
+    parse_krb_error(as_res_bytes)
     ticket, service_key = get_service_key(as_res_bytes, tgs_session_key)
     return ticket, service_key
