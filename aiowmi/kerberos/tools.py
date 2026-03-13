@@ -306,7 +306,7 @@ KRB_ERRORS = {
     33: "KRB_AP_ERR_TKT_NYV (Ticket not yet valid)",
     34: "KRB_AP_ERR_REPEAT (Request is a replay)",
     35: "KRB_AP_ERR_NOT_US (The ticket isn't for us)",
-    36: "KRB_AP_ERR_BADMATCH (Ticket and authenticator don't match)",
+    36: "KRB_AP_ERR_BADMATCH (Ticket/Auth mismatch; check user@domain (FQDN))",
     37: "KRB_AP_ERR_SKEW (Clock skew too great)",
     38: "KRB_AP_ERR_BADADDR (Incorrect net address)",
     39: "KRB_AP_ERR_BADVERSION (Protocol version mismatch)",
