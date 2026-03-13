@@ -226,8 +226,8 @@ class Connection:
                                                m_auth_level=proto._auth_level)
             except (AccessDenied, NoNewActiveKey, BindNak) as e:
                 msg = str(e) or type(e).__name__
-                logger.warning(f'{msg} (attempt {attempt}/{MAX_ATTEMPTS})')
                 if attempt <= MAX_ATTEMPTS:
+                    logger.info(f'{msg} (attempt {attempt}/{MAX_ATTEMPTS})')
                     if attempt:
                         has_keys = False  # attemp to get new keys
                     self.close()
