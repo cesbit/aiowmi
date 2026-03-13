@@ -269,13 +269,32 @@ def sign_func_kerberos(session_key: bytes):
 
 
 KDC_ERR_PREAUTH_REQUIRED = 25
+
 KRB_ERRORS = {
     6:  "KDC_ERR_C_PRINCIPAL_UNKNOWN (Username not found)",
-    7:  "KDC_ERR_S_PRINCIPAL_UNKNOWN (Service not found; Must use FQDN !!)",
-    18: "KDC_ERR_CLIENT_REVOKED (Account blocked)",
-    24: "KDC_ERR_PREAUTH_FAILED (Wrong password)",
-    31: "KDC_ERR_S_PRINCIPAL_UNKNOWN (Service SPN not found)",
-    60: "KDC_ERR_WRONG_REALM (Wrong domain name)"
+    7:  "KDC_ERR_S_PRINCIPAL_UNKNOWN (Server not found; check FQDN and SPN)",
+    18: (
+        "KDC_ERR_CLIENT_REVOKED "
+        "(Client credentials have been revoked or account is locked)"),
+    24: "KDC_ERR_PREAUTH_FAILED (Pre-authentication failed; check password)",
+    25: (
+        "KDC_ERR_PREAUTH_REQUIRED "
+        "(Additional pre-authentication required; standard step)"),
+    31: (
+        "KDC_ERR_S_PRINCIPAL_UNKNOWN "
+        "(Service principal unknown; SPN mismatch)"),
+    32: (
+        "KDC_ERR_AD_UNKNOWN_PY_DATA "
+        "(An error occurred within the Active Directory)"),
+    36: (
+        "KDC_ERR_TGT_REVOKED "
+        "(TGT has been revoked by the KDC; check machine/session state)"),
+    37: "KDC_ERR_SKEW (Clock skew too great; time difference > 5 mins)",
+    60: "KDC_ERR_WRONG_REALM (Wrong realm or domain name provided)",
+    62: (
+        "KDC_ERR_POLICY "
+        "(KDC policy rejects request; e.g., login hour restrictions)"),
+    68: "KDC_ERR_WRONG_REALM (Client not found in the requested realm)"
 }
 
 
