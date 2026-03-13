@@ -271,30 +271,93 @@ def sign_func_kerberos(session_key: bytes):
 KDC_ERR_PREAUTH_REQUIRED = 25
 
 KRB_ERRORS = {
-    6:  "KDC_ERR_C_PRINCIPAL_UNKNOWN (Username not found)",
-    7:  "KDC_ERR_S_PRINCIPAL_UNKNOWN (Server not found; check FQDN and SPN)",
-    18: (
-        "KDC_ERR_CLIENT_REVOKED "
-        "(Client credentials have been revoked or account is locked)"),
-    24: "KDC_ERR_PREAUTH_FAILED (Pre-authentication failed; check password)",
-    25: (
-        "KDC_ERR_PREAUTH_REQUIRED "
-        "(Additional pre-authentication required; standard step)"),
-    31: (
-        "KDC_ERR_S_PRINCIPAL_UNKNOWN "
-        "(Service principal unknown; SPN mismatch)"),
-    32: (
-        "KDC_ERR_AD_UNKNOWN_PY_DATA "
-        "(An error occurred within the Active Directory)"),
-    36: (
-        "KDC_ERR_TGT_REVOKED "
-        "(TGT has been revoked by the KDC; check machine/session state)"),
-    37: "KDC_ERR_SKEW (Clock skew too great; time difference > 5 mins)",
-    60: "KDC_ERR_WRONG_REALM (Wrong realm or domain name provided)",
-    62: (
-        "KDC_ERR_POLICY "
-        "(KDC policy rejects request; e.g., login hour restrictions)"),
-    68: "KDC_ERR_WRONG_REALM (Client not found in the requested realm)"
+    0:  "KDC_ERR_NONE (No error)",
+    1:  "KDC_ERR_NAME_EXP (Client's entry in database has expired)",
+    2:  "KDC_ERR_SERVICE_EXP (Server's entry in database has expired)",
+    3:  "KDC_ERR_BAD_PVNO (Requested protocol version number not supported)",
+    4:  "KDC_ERR_C_OLD_MAST_KVNO (Client's key encrypted in old master key)",
+    5:  "KDC_ERR_S_OLD_MAST_KVNO (Server's key encrypted in old master key)",
+    6:  "KDC_ERR_C_PRINCIPAL_UNKNOWN (Username not found in Kerberos db)",
+    7:  "KDC_ERR_S_PRINCIPAL_UNKNOWN (Server not found; Must use FQDN)",
+    8:  "KDC_ERR_PRINCIPAL_NOT_UNIQUE (Multiple principal entries in db)",
+    9:  "KDC_ERR_NULL_KEY (The client or server has a null key)",
+    10: "KDC_ERR_CANNOT_POSTDATE (Ticket not eligible for postdating)",
+    11: "KDC_ERR_NEVER_VALID (Requested starttime is later than end time)",
+    12: "KDC_ERR_POLICY (KDC policy rejects request)",
+    13: "KDC_ERR_BADOPTION (KDC cannot accommodate requested option)",
+    14: "KDC_ERR_ETYPE_NOSUPP (KDC has no support for encryption type)",
+    15: "KDC_ERR_SUMTYPE_NOSUPP (KDC has no support for checksum type)",
+    16: "KDC_ERR_PADATA_TYPE_NOSUPP (KDC has no support for padata type)",
+    17: "KDC_ERR_TRTYPE_NOSUPP (KDC has no support for transited type)",
+    18: "KDC_ERR_CLIENT_REVOKED (Clients credentials have been revoked)",
+    19: "KDC_ERR_SERVICE_REVOKED (Credentials for server have been revoked)",
+    20: "KDC_ERR_TGT_REVOKED (TGT has been revoked)",
+    21: "KDC_ERR_CLIENT_NOTYET (Client not yet valid; try again later)",
+    22: "KDC_ERR_SERVICE_NOTYET (Server not yet valid; try again later)",
+    23: "KDC_ERR_KEY_EXPIRED (Password has expired; change password to reset)",
+    24: "KDC_ERR_PREAUTH_FAILED (Pre-auth invalid; check password)",
+    25: "KDC_ERR_PREAUTH_REQUIRED (Additional pre-authentication required)",
+    26: "KDC_ERR_SERVER_NOMATCH (Requested server and ticket don't match)",
+    27: "KDC_ERR_MUST_USE_USER2USER (Server principal valid for usr2usr only)",
+    28: "KDC_ERR_PATH_NOT_ACCEPTED (KDC Policy rejects transited path)",
+    29: "KDC_ERR_SVC_UNAVAILABLE (A service is not available)",
+    31: "KRB_AP_ERR_BAD_INTEGRITY (Integrity check on decrypted field failed)",
+    32: "KRB_AP_ERR_TKT_EXPIRED (Ticket expired)",
+    33: "KRB_AP_ERR_TKT_NYV (Ticket not yet valid)",
+    34: "KRB_AP_ERR_REPEAT (Request is a replay)",
+    35: "KRB_AP_ERR_NOT_US (The ticket isn't for us)",
+    36: "KRB_AP_ERR_BADMATCH (Ticket and authenticator don't match)",
+    37: "KRB_AP_ERR_SKEW (Clock skew too great)",
+    38: "KRB_AP_ERR_BADADDR (Incorrect net address)",
+    39: "KRB_AP_ERR_BADVERSION (Protocol version mismatch)",
+    40: "KRB_AP_ERR_MSG_TYPE (Invalid msg type)",
+    41: "KRB_AP_ERR_MODIFIED (Message stream modified)",
+    42: "KRB_AP_ERR_BADORDER (Message out of order)",
+    44: "KRB_AP_ERR_BADKEYVER (Specified version of key is not available)",
+    45: "KRB_AP_ERR_NOKEY (Service key not available)",
+    46: "KRB_AP_ERR_MUT_FAIL (Mutual authentication failed)",
+    47: "KRB_AP_ERR_BADDIRECTION (Incorrect message direction)",
+    48: "KRB_AP_ERR_METHOD (Alternative authentication method required)",
+    49: "KRB_AP_ERR_BADSEQ (Incorrect sequence number in message)",
+    50: "KRB_AP_ERR_INAPP_CKSUM (Inappropriate type of checksum in message)",
+    51: "KRB_AP_PATH_NOT_ACCEPTED (Policy rejects transited path)",
+    52: "KRB_ERR_RESPONSE_TOO_BIG (Response too big for UDP; retry with TCP)",
+    60: "KRB_ERR_GENERIC (Generic error; description in e-text)",
+    61: "KRB_ERR_FIELD_TOOLONG (Field is too long for this implementation)",
+    62: "KDC_ERROR_CLIENT_NOT_TRUSTED (Reserved for PKINIT)",
+    63: "KDC_ERROR_KDC_NOT_TRUSTED (Reserved for PKINIT)",
+    64: "KDC_ERROR_INVALID_SIG (Reserved for PKINIT)",
+    65: "KDC_ERR_KEY_TOO_WEAK (Reserved for PKINIT)",
+    66: "KDC_ERR_CERTIFICATE_MISMATCH (Reserved for PKINIT)",
+    67: "KRB_AP_ERR_NO_TGT (No TGT available to validate USER-TO-USER)",
+    68: "KDC_ERR_WRONG_REALM (Reserved for future use)",
+    69: "KRB_AP_ERR_USER_TO_USER_REQUIRED (Ticket must be for USER-TO-USER)",
+    70: "KDC_ERR_CANT_VERIFY_CERTIFICATE (Reserved for PKINIT)",
+    71: "KDC_ERR_INVALID_CERTIFICATE (Reserved for PKINIT)",
+    72: "KDC_ERR_REVOKED_CERTIFICATE (Reserved for PKINIT)",
+    73: "KDC_ERR_REVOCATION_STATUS_UNKNOWN (Reserved for PKINIT)",
+    74: "KDC_ERR_REVOCATION_STATUS_UNAVAILABLE (Reserved for PKINIT)",
+    75: "KDC_ERR_CLIENT_NAME_MISMATCH (Reserved for PKINIT)",
+    76: "KDC_ERR_KDC_NAME_MISMATCH (Reserved for PKINIT)",
+    77: (
+        "KDC_ERR_INCONSISTENT_KEY_PURPOSE "
+        "(Certificate cannot be used for PKINIT client authentication)"),
+    78: (
+        "KDC_ERR_DIGEST_IN_CERT_NOT_ACCEPTED "
+        "(Digest algorithm for the public key is not acceptable)"),
+    79: "KDC_ERR_PA_CHECKSUM_MUST_BE_INCLUDED (The paChksum field is missing)",
+    80: (
+        "KDC_ERR_DIGEST_IN_SIGNED_DATA_NOT_ACCEPTED "
+        "(Digest algorithm used by id-pkinit-authData is not acceptable)"),
+    81: (
+        "KDC_ERR_PUBLIC_KEY_ENCRYPTION_NOT_SUPPORTED "
+        "(The KDC does not support public key encryption delivery)"),
+    90: "KDC_ERR_PREAUTH_EXPIRED (Pre-authentication has expired)",
+    91: "KDC_ERR_MORE_PREAUTH_DATA_REQUIRED (Additional pre-auth required)",
+    92: (
+        "KDC_ERR_PREAUTH_BAD_AUTHENTICATION_SET "
+        "(KDC cannot accommodate requested pre-authentication element)"),
+    93: "KDC_ERR_UNKNOWN_CRITICAL_FAST_OPTIONS (Unknown critical option)"
 }
 
 
