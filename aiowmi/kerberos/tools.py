@@ -109,53 +109,63 @@ def aes_cts_encrypt(key: bytes, plain: bytes) -> bytes:
 
 
 def decrypt_kerberos_aes_cts(key: bytes, usage: int, cipher: bytes) -> bytes:
+    # Split cipher and HMAC
     ciphertext = cipher[:-12]
     expected_hmac = cipher[-12:]
 
+    # Derive Keys
     ki = derive_key(key, usage, 0x55)
     ke = derive_key(key, usage, 0xAA)
 
     n = len(ciphertext)
     block_size = 16
 
-    aes = AES.new(ke, AES.MODE_ECB)
+    if n < block_size:
+        raise ValueError("Ciphertext too short")
 
-    if n % block_size == 0:
-        aes_cbc = AES.new(ke, AES.MODE_CBC, b'\x00' * block_size)
-        plaintext_with_confounder = aes_cbc.decrypt(ciphertext)
+    aes_ecb = AES.new(ke, AES.MODE_ECB)
+
+    if n == block_size:
+        # Simple one-block case
+        plaintext_with_confounder = aes_ecb.decrypt(ciphertext)
+    elif n % block_size == 0:
+        # Standard CBC
+        cipher_cbc = AES.new(ke, AES.MODE_CBC, b'\x00' * block_size)
+        plaintext_with_confounder = cipher_cbc.decrypt(ciphertext)
     else:
-        m = n // block_size
-        last_blocks_len = n % block_size
+        # Manual CTS Decryption (NIST CS3)
+        m = (n // block_size) * block_size
+        last_len = n % block_size
 
-        iv = b'\x00' * block_size
-        plaintext_with_confounder = b''
+        # All blocks except last two
+        prev_blocks = ciphertext[:m-block_size]
+        cn_minus_1 = ciphertext[m-block_size:m]
+        cn = ciphertext[m:]
 
-        for i in range(m - 1):
-            block = ciphertext[i*block_size: (i+1)*block_size]
-            dec = aes.decrypt(block)
-            plaintext_with_confounder += \
-                bytes(a ^ b for a, b in zip(dec, iv))
-            iv = block
+        # Decrypt cn_minus_1 to get the 'stolen' padding
+        tmp = aes_ecb.decrypt(cn_minus_1)
+        pn = bytes(a ^ b for a, b in zip(tmp[:last_len], cn))
 
-        cn_minus_1 = ciphertext[(m-1)*block_size: m*block_size]
-        cn = ciphertext[m*block_size:]
+        # Reconstruct the full last block
+        last_block_full = cn + tmp[last_len:]
+        pn_minus_1_dec = aes_ecb.decrypt(last_block_full)
 
-        dec_intermediate = aes.decrypt(cn_minus_1)
+        # IV for the second-to-last block
+        iv = b'\x00' * block_size \
+            if m == block_size \
+            else ciphertext[m-block_size*2:m-block_size]
+        pn_minus_1 = bytes(a ^ b for a, b in zip(pn_minus_1_dec, iv))
 
-        pn = bytes(
-            a ^ b for a, b in zip(dec_intermediate[:last_blocks_len], cn))
-
-        stolen_bytes = dec_intermediate[last_blocks_len:]
-        full_block_to_decrypt = cn + stolen_bytes
-
-        dec_pn_minus_1 = aes.decrypt(full_block_to_decrypt)
-        pn_minus_1 = bytes(a ^ b for a, b in zip(dec_pn_minus_1, iv))
-
-        plaintext_with_confounder += pn_minus_1 + pn
+        if m > block_size:
+            cipher_cbc = AES.new(ke, AES.MODE_CBC, b'\x00' * block_size)
+            p_start = cipher_cbc.decrypt(prev_blocks)
+            plaintext_with_confounder = p_start + pn_minus_1 + pn
+        else:
+            plaintext_with_confounder = pn_minus_1 + pn
 
     h = HMAC.new(ki, plaintext_with_confounder, SHA1)
     if h.digest()[:12] != expected_hmac:
-        raise ValueError("Integrity check failed: HMAC mismatch")
+        raise ValueError(f"HMAC mismatch. Key usage: {usage}")
 
     return plaintext_with_confounder
 
