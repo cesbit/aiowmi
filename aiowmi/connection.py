@@ -206,11 +206,10 @@ class Connection:
 
         self._kerberos_cache.write(self._tgt, self._tgs, logger)
 
-    async def negotiate_kerberos(self) -> Protocol:
+    async def negotiate_kerberos(self, max_retry: int = 5) -> Protocol:
         if not self._domain:
             raise Exception('domain is required for Kerberos authentication')
-        MAX_ATTEMPTS = 2
-        attempt = 0
+        attempt = 1
         has_keys = self._tgt is not None and self._tgt is not None
         while True:
             proto = self._protocol
@@ -230,12 +229,12 @@ class Connection:
                                                m_auth_level=proto._auth_level)
             except (AccessDenied, NoNewActiveKey, BindNak) as e:
                 msg = str(e) or type(e).__name__
-                if attempt <= MAX_ATTEMPTS:
-                    logger.info(f'{msg} (attempt {attempt}/{MAX_ATTEMPTS})')
-                    if attempt:
+                if attempt <= max_retry:
+                    logger.info(f'{msg} (attempt {attempt}/{max_retry})')
+                    if attempt % 2 == 0:
                         has_keys = False  # attemp to get new keys
                     self.close()
-                    await asyncio.sleep(0.5 * attempt)
+                    await asyncio.sleep(0.1 * attempt)
                     attempt += 1
                     await self.connect(timeout=self._timeout)
                     continue
