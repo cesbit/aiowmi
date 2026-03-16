@@ -74,6 +74,10 @@ class Connection:
         self._kerberos_cache = kerberos_cache or KerberosCache()
         self._tgt, self._tgs = self._kerberos_cache.open(logger)
 
+    def set_kdc(self, kdc_host: str, kdc_port: int = 88):
+        self._kdc_host = kdc_host
+        self._kdc_port = kdc_port
+
     async def connect(self, timeout: int = 10):
         conn = self._loop.create_connection(
             lambda: Protocol(loop=self._loop),
