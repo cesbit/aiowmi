@@ -10,18 +10,15 @@ def extract_kerberos_salt(error_data: bytes) -> str:
     if error_data[0] != 0x7e:
         raise ValueError("Invalid KRB-ERROR packet")
 
-    # find start of container
+    # Tag 12 (e-data) is [12] EXPLICIT OCTET STRING or SEQUENCE
     e_data_idx = error_data.find(b'\xac')
     if e_data_idx == -1:
-        raise ValueError("e-data (Tag 12) niet gevonden")
+        raise ValueError("e-data (Tag 12) not found")
 
-    pos = e_data_idx
-    _, len_size = get_asn1_len(error_data, pos + 1)
-    pos += 1 + len_size
-
-    salt_tag_idx = error_data.find(b'\x1b\x1c', pos)
+    # The Salt is a GeneralString (Tag 0x1b)
+    salt_tag_idx = error_data.find(b'\x1b', e_data_idx)
     if salt_tag_idx == -1:
-        raise ValueError("Salt (GeneralString) not found")
+        raise ValueError("Salt (GeneralString Tag 0x1b) not found in e-data")
 
     salt_len, salt_len_size = get_asn1_len(error_data, salt_tag_idx + 1)
     salt_start = salt_tag_idx + 1 + salt_len_size

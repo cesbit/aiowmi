@@ -33,12 +33,8 @@ def asn1_gs(val: bytes) -> bytes:
 
 
 def asn1_int(val: int) -> bytes:
-    num_bytes = (val.bit_length() + 7) // 8 or 1
-    int_bytes = val.to_bytes(num_bytes, 'big')
-
-    if int_bytes[0] & 0x80:
-        int_bytes = b'\x00' + int_bytes
-
+    num_bytes = (val.bit_length() + 8) // 8
+    int_bytes = val.to_bytes(num_bytes, 'big', signed=True)
     return b'\x02' + asn1_len(int_bytes) + int_bytes
 
 
