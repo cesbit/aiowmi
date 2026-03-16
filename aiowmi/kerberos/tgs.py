@@ -1,4 +1,8 @@
 import random
+from Crypto.Cipher import AES
+from datetime import datetime, timezone
+from pyasn1.codec.der import decoder, encoder
+from pyasn1.type import univ, tag, namedtype, char
 from .asn1 import (
     asn1_len, asn1_tag, asn1_seq, asn1_gs, asn1_ostr, asn1_int, asn1_gt
 )
@@ -6,10 +10,6 @@ from .kdc import send_kerberos_packet
 from .tools import decrypt_kerberos_aes_cts, encrypt_kerberos_aes_cts
 from .tools import read_session_key, parse_krb_error
 from .asn1 import get_asn1_len
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from datetime import datetime, timezone
-from pyasn1.codec.der import decoder, encoder
-from pyasn1.type import univ, tag, namedtype, char
 
 
 def aes_cts_encrypt(key, plaintext):
@@ -17,16 +17,17 @@ def aes_cts_encrypt(key, plaintext):
     n = len(plaintext)
 
     if n % 16 == 0:
-        cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-        encryptor = cipher.encryptor()
-        return encryptor.update(plaintext) + encryptor.finalize()
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        return cipher.encrypt(plaintext)
+
+    if n < 16:
+        raise ValueError("Plaintext must be at least 16 bytes for AES-CTS")
 
     pad_len = 16 - (n % 16)
     padded_plain = plaintext + b'\x00' * pad_len
 
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-    encryptor = cipher.encryptor()
-    full_cipher = encryptor.update(padded_plain) + encryptor.finalize()
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    full_cipher = cipher.encrypt(padded_plain)
 
     last_block_start = (len(full_cipher) // 16 - 1) * 16
     prev_block_start = last_block_start - 16

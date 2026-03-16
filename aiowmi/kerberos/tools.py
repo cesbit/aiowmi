@@ -6,7 +6,6 @@ import math
 import struct
 from functools import reduce
 from pyasn1.codec.der import decoder, encoder
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from Crypto.Cipher import AES
 from Crypto.Hash import HMAC, SHA1, MD5
 from .rc4 import RC4
@@ -72,31 +71,41 @@ def derive_key(base_key, usage_int, payload_byte=None):
         constant += bytes([payload_byte])
 
     nfolded = _nfold(constant, 16)
-    cipher = Cipher(algorithms.AES(base_key), modes.ECB())
-    encryptor1 = cipher.encryptor()
-    b1 = encryptor1.update(nfolded) + encryptor1.finalize()
-    encryptor2 = cipher.encryptor()
-    b2 = encryptor2.update(b1) + encryptor2.finalize()
+
+    cipher1 = AES.new(base_key, AES.MODE_ECB)
+    b1 = cipher1.encrypt(nfolded)
+
+    cipher2 = AES.new(base_key, AES.MODE_ECB)
+    b2 = cipher2.encrypt(b1)
 
     return b1 + b2
 
 
 def aes_cts_encrypt(key: bytes, plain: bytes) -> bytes:
-    n = len(plain)  # 43 bytes
+    n = len(plain)
     iv = b'\x00' * 16
+
+    if n < 16:
+        raise ValueError("Plaintext too short for CTS")
+
+    if n % 16 == 0:
+        cipher = AES.new(key, AES.MODE_CBC, iv)
+        return cipher.encrypt(plain)
+
     pad_len = 16 - (n % 16)
     padded_plain = plain + b'\x00' * pad_len
 
-    # CBC encryptie (correct IV)
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-    encryptor = cipher.encryptor()
-    full_cipher = encryptor.update(padded_plain) + encryptor.finalize()
+    cipher = AES.new(key, AES.MODE_CBC, iv)
+    full_cipher = cipher.encrypt(padded_plain)
 
-    c1 = full_cipher[0:16]
-    c2 = full_cipher[16:32]
-    c3 = full_cipher[32:48]
+    last_block_start = (len(full_cipher) // 16 - 1) * 16
+    prev_block_start = last_block_start - 16
 
-    return c1 + c3 + c2[:n % 16]
+    c_all_but_last_two = full_cipher[:prev_block_start]
+    c_second_to_last = full_cipher[prev_block_start:last_block_start]
+    c_last = full_cipher[last_block_start:]
+
+    return c_all_but_last_two + c_last + c_second_to_last[:n % 16]
 
 
 def decrypt_kerberos_aes_cts(key: bytes, usage: int, cipher: bytes) -> bytes:

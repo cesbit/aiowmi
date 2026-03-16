@@ -1,5 +1,7 @@
 import hashlib
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from Crypto.Protocol.KDF import PBKDF2
+from Crypto.Cipher import AES
+from Crypto.Hash import SHA1
 from .as_req import build_as_req, build_full_as_req
 from .kdc import send_kerberos_packet
 from .asn1 import get_asn1_len
@@ -32,20 +34,21 @@ def nfold_for_kerberos():
 
 
 def aes_string_to_key(password, salt):
-    tkey = hashlib.pbkdf2_hmac('sha1',
-                               password.encode(),
-                               salt.encode(),
-                               4096,
-                               32)
+    tkey = PBKDF2(
+        password.encode(),
+        salt.encode(),
+        dkLen=32,
+        count=4096,
+        hmac_hash_module=SHA1
+    )
     constant = nfold_for_kerberos()
 
-    cipher = Cipher(algorithms.AES(tkey), modes.CBC(b'\x00' * 16))
+    iv = b'\x00' * 16
+    cipher1 = AES.new(tkey, AES.MODE_CBC, iv)
+    part1 = cipher1.encrypt(constant)
 
-    encryptor1 = cipher.encryptor()
-    part1 = encryptor1.update(constant) + encryptor1.finalize()
-
-    encryptor2 = cipher.encryptor()
-    part2 = encryptor2.update(part1) + encryptor2.finalize()
+    cipher2 = AES.new(tkey, AES.MODE_CBC, iv)
+    part2 = cipher2.encrypt(part1)
 
     return part1 + part2
 
