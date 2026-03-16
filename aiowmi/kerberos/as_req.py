@@ -49,7 +49,6 @@ def build_as_req(username: str, domain: str, pa_enc: bytes = b'') -> bytes:
     # KDC Body
     nonce = random.getrandbits(31)
 
-# 1. Timestamps
     now = datetime.now(timezone.utc)
 
     # Start time: 5 minutes in the PAST to handle clock skew
