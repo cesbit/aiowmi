@@ -1,6 +1,6 @@
 import random
 from Crypto.Cipher import AES
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pyasn1.codec.der import decoder, encoder
 from pyasn1.type import univ, tag, namedtype, char
 from .asn1 import (
@@ -108,6 +108,7 @@ def build_tgs_req(username: str,
                   target_service: tuple[str, str]):
     now = datetime.now(timezone.utc)
     ts_str = now.strftime("%Y%m%d%H%M%SZ").encode()
+    till_ts = (now + timedelta(hours=8)).strftime("%Y%m%d%H%M%SZ").encode()
 
     cname_content = (
         asn1_tag(0, asn1_int(1)) +
@@ -167,7 +168,7 @@ def build_tgs_req(username: str,
         asn1_tag(0, b'\x03\x05\x00\x40\x81\x00\x10') +   # KDC Options
         asn1_tag(2, asn1_gs(domcaps.encode())) +         # Realm
         asn1_tag(3, asn1_seq(sname_inner)) +             # sname
-        asn1_tag(5, asn1_gt(ts_str)) +                   # Till
+        asn1_tag(5, asn1_gt(till_ts)) +                  # Till
         asn1_tag(7, asn1_int(nonce)) +                   # Nonce
         asn1_tag(8, asn1_seq(etype_list))                # Etypes
     )
