@@ -45,13 +45,13 @@ class Protocol(asyncio.Protocol):
         '''
 
         self._transport = transport
-        logger.info(f'Connection made: {self.connection_info()}')
+        logger.debug(f'Connection made: {self.connection_info()}')
 
     def connection_lost(self, exc: Exception) -> None:
         '''
         override asyncio.Protocol
         '''
-        logger.info(f'Connection lost {self.connection_info()}')
+        logger.debug(f'Connection lost {self.connection_info()}')
         self._transport = None
 
     def __bool__(self):
