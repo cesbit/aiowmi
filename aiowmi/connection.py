@@ -206,7 +206,7 @@ class Connection:
 
         self._kerberos_cache.write(self._tgt, self._tgs, logger)
 
-    async def negotiate_kerberos(self, max_retry: int = 5) -> Protocol:
+    async def negotiate_kerberos(self, max_retry: int = 3) -> Protocol:
         if not self._domain:
             raise Exception('domain is required for Kerberos authentication')
         attempt = 1
