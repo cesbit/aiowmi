@@ -48,10 +48,18 @@ def build_as_req(username: str, domain: str, pa_enc: bytes = b'') -> bytes:
 
     # KDC Body
     nonce = random.getrandbits(31)
-    till = (
-        datetime.now(timezone.utc) +
-        timedelta(days=1)
-    ).strftime("%Y%m%d%H%M%SZ").encode()
+
+# 1. Timestamps
+    now = datetime.now(timezone.utc)
+
+    # Start time: 5 minutes in the PAST to handle clock skew
+    from_time = (now - timedelta(minutes=5)).strftime("%Y%m%d%H%M%SZ").encode()
+
+    # End time: 10 hours is the standard Windows default
+    till_time = (now + timedelta(hours=10)).strftime("%Y%m%d%H%M%SZ").encode()
+
+    # Renewable time: 1 day (must be >= till)
+    rtime_time = (now + timedelta(days=1)).strftime("%Y%m%d%H%M%SZ").encode()
 
     # kdc-options: Forwardable, Proxiable, Renewable, Canonicalize
     kdc_options = b'\x03\x05\x00\x50\x80\x00\x00'
@@ -60,8 +68,9 @@ def build_as_req(username: str, domain: str, pa_enc: bytes = b'') -> bytes:
         asn1_tag(1, asn1_seq(cname)) +
         asn1_tag(2, b'\x1b' + asn1_len(domain.encode()) + domain.encode()) +
         asn1_tag(3, asn1_seq(sname)) +
-        asn1_tag(5, asn1_gt(till)) +  # till
-        asn1_tag(6, asn1_gt(till)) +  # rtime
+        asn1_tag(4, asn1_gt(from_time)) +
+        asn1_tag(5, asn1_gt(till_time)) +
+        asn1_tag(6, asn1_gt(rtime_time)) +
         asn1_tag(7, asn1_int(nonce)) +
         # etype: aes256-cts-hmac-sha1-96 (18)
         asn1_tag(8, asn1_seq(asn1_int(18)))
