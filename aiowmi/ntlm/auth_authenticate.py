@@ -1,5 +1,5 @@
 import struct
-from ..tools import get_rangom_bytes, ntowf_v2, hmac_md5
+from ..tools import get_random_bytes, ntowf_v2, hmac_md5
 from .av_pairs import AvPairs
 from .version import NTLMVersion
 from .const import NTLMSSP_NEGOTIATE_OEM_WORKSTATION_SUPPLIED
@@ -63,7 +63,7 @@ class NTLMAuthAuthenticate:
         av_pairs.set_target_name()
         av_time = av_pairs.get_or_set_av_time()
 
-        client_challenge = get_rangom_bytes(8)
+        client_challenge = get_random_bytes(8)
         server_name = av_pairs.get_data()
 
         temp = b''.join((

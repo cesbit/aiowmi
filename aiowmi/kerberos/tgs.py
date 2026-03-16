@@ -255,7 +255,7 @@ def get_service_key(resp_bytes: bytes,
 
 async def get_tgs(username: str, domain: str, host: str,
                   as_rep_bytes: bytes, base_key: bytes,
-                  kdc_host: str, kdc_port: int = 88) -> bytes:
+                  kdc_host: str, kdc_port: int = 88) -> tuple[bytes, bytes]:
     tgs_session_key = get_session_key(as_rep_bytes, base_key)
     tgs_ticket = extract_ticket(as_rep_bytes)
     tgs_req = build_tgs_req(username,

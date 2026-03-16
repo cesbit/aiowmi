@@ -8,6 +8,7 @@ from .tools import aes_cts_encrypt, derive_key
 from .asn1 import (
     asn1_len, asn1_seq, asn1_tag, asn1_int, asn1_gt, asn1_gs, asn1_ostr
 )
+from ..tools import get_random_bytes
 
 
 def build_as_req(username: str, domain: str, pa_enc: bytes = b'') -> bytes:
@@ -99,7 +100,7 @@ def build_full_as_req(username: str, domain: str, base_key: bytes):
     )
     original_plain = asn1_seq(original_plain_body)
 
-    confounder = os.urandom(16)
+    confounder = get_random_bytes(16)
     full_plain = confounder + original_plain
 
     ke = derive_key(base_key, 1, 0xAA)

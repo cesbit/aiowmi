@@ -14,7 +14,7 @@ from .ntlm.auth_challange import NTLMAuthChallenge
 from .ntlm.auth_negotiate import NTLMAuthNegotiate
 from .ntlm.tools import seal_func, sign_func
 from .protocol import Protocol
-from .tools import get_rangom_bytes, encrypted_session_key
+from .tools import get_random_bytes, encrypted_session_key
 from .rpc.const import (
     RPC_C_AUTHN_LEVEL_CONNECT,
     RPC_C_AUTHN_LEVEL_PKT_INTEGRITY,
@@ -135,7 +135,7 @@ class Connection:
         assert flags == 3767042613
 
         if flags & NTLMSSP_NEGOTIATE_KEY_EXCH:
-            exported_session_key = get_rangom_bytes(16)
+            exported_session_key = get_random_bytes(16)
 
             encr_random_session_key = encrypted_session_key(
                 session_base_key, exported_session_key)
@@ -212,6 +212,9 @@ class Connection:
         attempt = 1
         has_keys = self._tgt is not None and self._tgt is not None
         while True:
+            if self._protocol is None:
+                await self.connect(timeout=self._timeout)
+                assert self._protocol
             proto = self._protocol
             proto._auth_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
             proto._context_id = 0x0001357f
@@ -236,7 +239,6 @@ class Connection:
                     self.close()
                     await asyncio.sleep(0.1 * attempt)
                     attempt += 1
-                    await self.connect(timeout=self._timeout)
                     continue
                 raise
             else:

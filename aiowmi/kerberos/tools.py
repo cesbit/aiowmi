@@ -11,6 +11,7 @@ from Crypto.Hash import HMAC, SHA1, MD5
 from .rc4 import RC4
 from .gss import gss_wrap_rc4, gss_unwrap_rc4
 from ..exceptions import KerberosErr
+from ..tools import get_random_bytes
 
 
 def _nfold(ba, nbytes):
@@ -176,7 +177,7 @@ def encrypt_kerberos_aes_cts(session_key: bytes,
     ki = derive_key(session_key, usage, 0x55)
     ke = derive_key(session_key, usage, 0xAA)
 
-    confounder = os.urandom(16)
+    confounder = get_random_bytes(16)
     basic_plaintext = confounder + plain_text
 
     h = HMAC.new(ki, basic_plaintext, SHA1)
@@ -205,7 +206,7 @@ def encrypt_kerberos_aes_cts(session_key: bytes,
 
 
 def encrypt_kerberos_rc4(session_key, usage, plaintext):
-    confounder = os.urandom(8)
+    confounder = get_random_bytes(8)
     data_to_encrypt = confounder + plaintext
 
     usage_bytes = struct.pack('<I', usage)
@@ -268,7 +269,7 @@ def gss_unwrap_kerberos(session_key: bytes):
     def _kerberos_unwrap(
             cipher_text: bytes,
             auth_data: bytes,
-            session_key: bytes) -> tuple[bytes, bytes]:
+            session_key: bytes) -> bytes:
         return gss_unwrap_rc4(session_key,
                               cipher_text,
                               auth_data)

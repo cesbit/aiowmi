@@ -1,7 +1,7 @@
+import os
 import hashlib
 import hmac
 import random
-import string
 import socket
 import struct
 import datetime
@@ -71,22 +71,14 @@ def compute_nthash(password: str):
     return hash.digest()
 
 
-def hmac_md5(key, data):
-    hash = hmac.new(key, digestmod=hashlib.md5)
-    hash.update(data)
-    return hash.digest()
-
-
 def ntowf_v2(user: str, password: str, domain: bytes):
     hash = hmac.new(compute_nthash(password), digestmod=hashlib.md5)
     hash.update(user.upper().encode('utf-16le') + domain)
     return hash.digest()
 
 
-def get_rangom_bytes(length):
-    return bytes(''.join(
-        random.choice(string.digits+string.ascii_letters)
-        for _ in range(length)), 'latin-1')
+def get_random_bytes(length: int) -> bytes:
+    return os.urandom(length)
 
 
 def hmac_md5(key: bytes, data: bytes):

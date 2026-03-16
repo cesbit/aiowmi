@@ -1,7 +1,7 @@
-import secrets
 import struct
 from Crypto.Hash import HMAC, MD5
 from Crypto.Cipher import ARC4
+from ..tools import get_random_bytes
 
 
 GSS_WRAP_HEADER = b'\x60\x2b\x06\x09\x2a\x86\x48\x86\xf7\x12\x01\x02\x02'
@@ -25,7 +25,7 @@ def gss_wrap_rc4(session_key: bytes,
     else:
         snd_seq = struct.pack('>L', seq_num) + b'\xff' * 4
 
-    confounder = secrets.token_bytes(8)
+    confounder = get_random_bytes(8)
 
     k_sign = HMAC.new(session_key, b'signaturekey\0', MD5).digest()
 

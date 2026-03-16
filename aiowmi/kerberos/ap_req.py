@@ -1,3 +1,4 @@
+from typing import Optional
 from datetime import datetime, timezone
 from .asn1 import asn1_len, asn1_tag, asn1_gt, asn1_int, asn1_ostr
 from .tools import encrypt_kerberos_rc4, decrypt_kerberos_rc4
@@ -40,7 +41,8 @@ def build_ap_req(username: str,
     cksum_asn1 = asn1_tag(3, b'\x30\x23' + cksum_inner)
 
     # CName [2]
-    uname_bytes = b'\x1b' + asn1_len(username) + username.encode()
+    uname = username.encode()
+    uname_bytes = b'\x1b' + asn1_len(uname) + uname
     cname_inner = (
         asn1_tag(0, asn1_int(1)) +
         asn1_tag(1, b'\x30' + asn1_len(uname_bytes) + uname_bytes)
@@ -49,7 +51,8 @@ def build_ap_req(username: str,
         asn1_tag(2, b'\x30' + asn1_len(cname_inner) + cname_inner)
 
     # Realm [1]
-    realm_asn1 = asn1_tag(1, b'\x1b' + asn1_len(domain) + domain.encode())
+    realm = domain.encode()
+    realm_asn1 = asn1_tag(1, b'\x1b' + asn1_len(realm) + realm)
 
     # Authenticator Body (Plaintext)
     auth_body = (
@@ -85,7 +88,7 @@ def build_ap_req(username: str,
 
 
 def get_active_key(auth_bytes: bytes,
-                   service_session_key: bytes) -> tuple[bytes, int]:
+                   service_session_key: bytes) -> tuple[Optional[bytes], int]:
     active_key, seq_number = None, 0
 
     etype_idx = auth_bytes.find(b'\x02\x01\x17')

@@ -23,9 +23,6 @@ async def send_kerberos_packet(packet_bytes: bytes,
         response_data = await reader.readexactly(resp_len)
         return response_data
 
-    except Exception as e:
-        logger.error(f"Error writing to kdc: {e}")
-        return None
     finally:
         writer.close()
         await writer.wait_closed()
