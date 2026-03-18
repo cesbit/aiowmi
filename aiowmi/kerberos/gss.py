@@ -96,7 +96,9 @@ def gss_unwrap_rc4(session_key: bytes,
     return data
 
 
-def gss_wrap_aes(session_key: bytes, data: bytes, seq_num: int):
+def gss_wrap_aes(session_key: bytes,
+                 data: bytes,
+                 seq_num: int) -> tuple[bytes, bytes]:
     pad = (16 - (len(data) % 16)) & 15
     pad_str = b'\xFF' * pad
 
@@ -108,10 +110,10 @@ def gss_wrap_aes(session_key: bytes, data: bytes, seq_num: int):
     plaintext = data + pad_str + header_for_hash
     raw_cipher = encrypt_kerberos_aes_cts(session_key, 24, plaintext)
 
-    def rotate(data, numBytes):
-        numBytes %= len(data)
-        left = len(data) - numBytes
-        return data[left:] + data[:left]
+    def rotate(bytes_data: bytes, n: int) -> bytes:
+        n %= len(bytes_data)
+        left = len(bytes_data) - n
+        return bytes_data[left:] + bytes_data[:left]
 
     rrc = 28
     total_rotate = rrc + pad
@@ -131,7 +133,8 @@ def gss_wrap_aes(session_key: bytes, data: bytes, seq_num: int):
     return ret1, ret2
 
 
-def gss_unwrap_aes(session_key: bytes, cipher_text: bytes, auth_data: bytes):
+def gss_unwrap_aes(session_key: bytes, cipher_text: bytes,
+                   auth_data: bytes) -> bytes:
     header = auth_data[:16]
     pad = struct.unpack('>H', header[4:6])[0]  # EC
     rrc = struct.unpack('>H', header[6:8])[0]  # RRC
