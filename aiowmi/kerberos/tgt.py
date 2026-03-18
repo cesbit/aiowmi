@@ -46,7 +46,7 @@ def nfold_for_kerberos():
     return b'\x6b\x65\x72\x62\x65\x72\x6f\x73\x7b\x9b\x5b\x2b\x93\x13\x2b\x93'
 
 
-def aes_string_to_key(password, salt, key_len=32):
+def aes_string_to_key(password: str, salt: str, key_len: int = 32):
     """
     Kerberos String-to-Key for AES (RFC 3962)
     key_len should be 16 for AES-128 or 32 for AES-256
@@ -83,9 +83,10 @@ async def get_tgt(username: str, password: str, domain: str,
     resp = await send_kerberos_packet(as_req, kdc_host, kdc_port)
     parse_krb_error(resp)
     salt, etype = extract_salt_and_etype(resp)
-    key_len = 16 if etype == 17 else 32
-    base_key = aes_string_to_key(password, salt, key_len)
-    full_as_req = build_full_as_req(username, domain, base_key)
+    if etype != 18:
+        raise ValueError('Only AES256 encryption supported for negotiation')
+    base_key = aes_string_to_key(password, salt)
+    full_as_req = build_full_as_req(username, domain, base_key, etype)
     as_res_bytes = await send_kerberos_packet(full_as_req, kdc_host, kdc_port)
     parse_krb_error(as_res_bytes)
     return as_res_bytes, base_key

@@ -1,12 +1,12 @@
 import datetime
 import struct
 from .asn1 import asn1_len, asn1_seq, asn1_tag, asn1_int, asn1_gt, asn1_ostr
-from .tools import encrypt_kerberos_rc4
+from .tools import encrypt_kerberos_rc4, encrypt_kerberos_aes_cts
 from ..dcom_const import NDR_TransferSyntaxIdentifier
 from ..rpc.const import RPC_C_AUTHN_GSS_NEGOTIATE
 
 
-def get_neg_token(service_session_key: bytes, seq_number: int):
+def get_neg_token(service_session_key: bytes, seq_number: int, etype: int):
     now = datetime.datetime.now(datetime.timezone.utc)
     timestamp = now.strftime('%Y%m%d%H%M%SZ').encode('ascii')
     cusec = now.microsecond
@@ -14,26 +14,38 @@ def get_neg_token(service_session_key: bytes, seq_number: int):
     enc_ap_rep_body = (
         asn1_tag(0, asn1_gt(timestamp)) +   # [0] ctime
         asn1_tag(1, asn1_int(cusec)) +      # [1] cusec
-        asn1_tag(3, asn1_int(seq_number))
+        asn1_tag(3, asn1_int(seq_number))   # [3] seq-number
     )
-    inner_seq = asn1_seq(enc_ap_rep_body)
-    enc_ap_rep = b'\x7b' + asn1_len(inner_seq) + inner_seq
 
-    encrypted_data = encrypt_kerberos_rc4(service_session_key, 12, enc_ap_rep)
+    inner_seq = b'\x30' + asn1_len(enc_ap_rep_body) + enc_ap_rep_body
+    plaintext = b'\x7b' + asn1_len(inner_seq) + inner_seq
+
+    if etype in [17, 18]:  # AES-128 / AES-256
+        enc_data = encrypt_kerberos_aes_cts(service_session_key, 12, plaintext)
+        current_etype = etype
+    else:   # RC4 (23)
+        enc_data = encrypt_kerberos_rc4(service_session_key, 12, plaintext)
+        current_etype = 23
+
     enc_part_content = (
-        asn1_tag(0, asn1_int(23)) +                  # etype 23 (RC4)
-        asn1_tag(2, asn1_ostr(encrypted_data))       # cipher
+        asn1_tag(0, asn1_int(current_etype)) +
+        asn1_tag(2, asn1_ostr(enc_data))
     )
 
     ap_rep_body = (
         asn1_tag(0, asn1_int(5)) +                   # pvno
         asn1_tag(1, asn1_int(15)) +                  # msg-type 15 (AP-REP)
-        asn1_tag(2, asn1_seq(enc_part_content))      # enc-part
+        asn1_tag(2, b'\x30' + asn1_len(enc_part_content) + enc_part_content)
     )
 
-    ap_rep = b'\x6f' + asn1_len(asn1_seq(ap_rep_body)) + asn1_seq(ap_rep_body)
-    response_token = asn1_tag(2, asn1_ostr(ap_rep))
-    auth_neg_token = asn1_tag(1, asn1_seq(response_token))
+    ap_rep_wrap = b'\x30' + asn1_len(ap_rep_body) + ap_rep_body
+    ap_rep_full = b'\x6f' + asn1_len(ap_rep_wrap) + ap_rep_wrap
+
+    # MechToken [2] -> Octet String -> AP-REP
+    resp_token = asn1_tag(2, asn1_ostr(ap_rep_full))
+
+    # NegTokenResp [1] -> Sequence -> MechToken
+    auth_neg_token = asn1_tag(1, b'\x30' + asn1_len(resp_token) + resp_token)
 
     return auth_neg_token
 

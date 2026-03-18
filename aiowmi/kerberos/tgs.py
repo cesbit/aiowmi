@@ -160,8 +160,9 @@ def build_tgs_req(username: str,
         ))
     )
 
-    # Etype list: RC4, AES128, DES, AES256
-    etype_list = asn1_int(23) + asn1_int(16) + asn1_int(3) + asn1_int(18)
+    # Etype list: RC4 (23), AES128 (16), AES256 (18)
+    # etypes = asn1_int(23) + asn1_int(16) + asn1_int(18)
+    etypes = asn1_int(23)
     nonce = random.getrandbits(31)
 
     req_body_content = (
@@ -170,7 +171,7 @@ def build_tgs_req(username: str,
         asn1_tag(3, asn1_seq(sname_inner)) +             # sname
         asn1_tag(5, asn1_gt(till_ts)) +                  # Till
         asn1_tag(7, asn1_int(nonce)) +                   # Nonce
-        asn1_tag(8, asn1_seq(etype_list))                # Etypes
+        asn1_tag(8, asn1_seq(etypes))                # Etypes
     )
     req_body_field = asn1_tag(4, asn1_seq(req_body_content))
 

@@ -61,6 +61,9 @@ def build_as_req(username: str, domain: str, pa_enc: bytes = b'') -> bytes:
     # Renewable time: 1 day (must be >= till)
     rtime_time = (now + timedelta(days=1)).strftime("%Y%m%d%H%M%SZ").encode()
 
+    # Etype list: RC4 (23), AES128 (16), AES256 (18)
+    etypes = asn1_int(18)
+
     # kdc-options: Forwardable, Proxiable, Renewable, Canonicalize
     kdc_options = b'\x03\x05\x00\x50\x80\x00\x00'
     req_body_fields = (
@@ -72,8 +75,7 @@ def build_as_req(username: str, domain: str, pa_enc: bytes = b'') -> bytes:
         asn1_tag(5, asn1_gt(till_time)) +
         asn1_tag(6, asn1_gt(rtime_time)) +
         asn1_tag(7, asn1_int(nonce)) +
-        # etype: aes256-cts-hmac-sha1-96 (18)
-        asn1_tag(8, asn1_seq(asn1_int(18)))
+        asn1_tag(8, asn1_seq(etypes))
     )
     req_body_sequence = asn1_seq(req_body_fields)
 
@@ -91,7 +93,7 @@ def build_as_req(username: str, domain: str, pa_enc: bytes = b'') -> bytes:
     return final_as_req
 
 
-def build_full_as_req(username: str, domain: str, base_key: bytes):
+def build_full_as_req(username: str, domain: str, base_key: bytes, etype: int):
     now = datetime.now(timezone.utc)
     ts_str = now.strftime("%Y%m%d%H%M%SZ").encode()
     original_plain_body = (
@@ -105,13 +107,14 @@ def build_full_as_req(username: str, domain: str, base_key: bytes):
 
     ke = derive_key(base_key, 1, 0xAA)
     ki = derive_key(base_key, 1, 0x55)
+
     signature = hmac.new(ki, full_plain, hashlib.sha1).digest()[:12]
     cipher_only = aes_cts_encrypt(ke, full_plain)
 
     final_payload = cipher_only + signature
 
     enc_data_content = (
-        asn1_tag(0, asn1_int(18)) +         # etype 18 (AES-256)
+        asn1_tag(0, asn1_int(etype)) +      # etype 17 (AES128) or 18 (AES256)
         asn1_tag(2, asn1_ostr(final_payload))
     )
 
@@ -144,6 +147,9 @@ def build_full_as_req(username: str, domain: str, base_key: bytes):
         asn1_tag(1, asn1_seq(asn1_gs(b"krbtgt") + asn1_gs(domcaps.encode())))
     )
 
+    # Etype list: RC4 (23), AES128 (16), AES256 (18)
+    etypes = asn1_int(18)
+
     req_body_content = (
         asn1_tag(0, b'\x03\x05\x00\x50\x80\x00\x00') +  # kdc-options
         asn1_tag(1, asn1_seq(cname_content)) +
@@ -152,7 +158,7 @@ def build_full_as_req(username: str, domain: str, base_key: bytes):
         asn1_tag(5, asn1_gt(till)) +
         asn1_tag(6, asn1_gt(till)) +
         asn1_tag(7, asn1_int(nonce)) +
-        asn1_tag(8, asn1_seq(asn1_int(18)))             # etype list
+        asn1_tag(8, asn1_seq(etypes))
     )
 
     as_req_content = (

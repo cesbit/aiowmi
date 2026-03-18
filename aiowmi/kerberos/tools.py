@@ -4,12 +4,12 @@ import hashlib
 import hmac
 import math
 import struct
+from typing import Optional
 from functools import reduce
 from pyasn1.codec.der import decoder, encoder
 from Crypto.Cipher import AES
 from Crypto.Hash import HMAC, SHA1, MD5
 from .rc4 import RC4
-from .gss import gss_wrap_rc4, gss_unwrap_rc4
 from ..exceptions import KerberosErr
 from ..tools import get_random_bytes
 
@@ -66,19 +66,22 @@ def _nfold(ba, nbytes):
     return bytes(reduce(add_ones_complement, parts))
 
 
-def derive_key(base_key, usage_int, payload_byte=None):
-    constant = struct.pack('>I', usage_int)
-    if payload_byte is not None:
-        constant += bytes([payload_byte])
+def derive_key(base_key: bytes, usage: int, payload: int = None) -> bytes:
+    key_len = len(base_key)  # 16 or 32
+
+    constant = struct.pack('>I', usage)
+    if payload is not None:
+        constant += bytes([payload])
 
     nfolded = _nfold(constant, 16)
 
-    cipher1 = AES.new(base_key, AES.MODE_ECB)
-    b1 = cipher1.encrypt(nfolded)
+    cipher = AES.new(base_key, AES.MODE_ECB)
+    b1 = cipher.encrypt(nfolded)
 
-    cipher2 = AES.new(base_key, AES.MODE_ECB)
-    b2 = cipher2.encrypt(b1)
+    if key_len == 16:
+        return b1
 
+    b2 = cipher.encrypt(b1)
     return b1 + b2
 
 
@@ -129,40 +132,35 @@ def decrypt_kerberos_aes_cts(key: bytes, usage: int, cipher: bytes) -> bytes:
     if n == block_size:
         # Simple one-block case
         plaintext_with_confounder = aes_ecb.decrypt(ciphertext)
-    elif n % block_size == 0:
-        # Standard CBC
-        cipher_cbc = AES.new(ke, AES.MODE_CBC, b'\x00' * block_size)
-        plaintext_with_confounder = cipher_cbc.decrypt(ciphertext)
     else:
-        # Manual CTS Decryption (NIST CS3)
-        m = (n // block_size) * block_size
-        last_len = n % block_size
+        # NIST CTS Decryption
+        block_size = 16
+        n = len(ciphertext)
+        m = ((n - 1) // block_size) * block_size
 
-        # All blocks except last two
-        prev_blocks = ciphertext[:m-block_size]
-        cn_minus_1 = ciphertext[m-block_size:m]
-        cn = ciphertext[m:]
+        cipher_cbc = AES.new(ke, AES.MODE_CBC, b'\x00' * block_size)
+        p_start = b""
+        if m > block_size:
+            p_start = cipher_cbc.decrypt(ciphertext[:m-block_size])
 
-        # Decrypt cn_minus_1 to get the 'stolen' padding
-        tmp = aes_ecb.decrypt(cn_minus_1)
-        pn = bytes(a ^ b for a, b in zip(tmp[:last_len], cn))
-
-        # Reconstruct the full last block
-        last_block_full = cn + tmp[last_len:]
-        pn_minus_1_dec = aes_ecb.decrypt(last_block_full)
-
-        # IV for the second-to-last block
         iv = b'\x00' * block_size \
             if m == block_size \
             else ciphertext[m-block_size*2:m-block_size]
-        pn_minus_1 = bytes(a ^ b for a, b in zip(pn_minus_1_dec, iv))
 
-        if m > block_size:
-            cipher_cbc = AES.new(ke, AES.MODE_CBC, b'\x00' * block_size)
-            p_start = cipher_cbc.decrypt(prev_blocks)
-            plaintext_with_confounder = p_start + pn_minus_1 + pn
-        else:
-            plaintext_with_confounder = pn_minus_1 + pn
+        cn_minus_1 = ciphertext[m-block_size:m]
+        cn = ciphertext[m:]
+
+        aes_ecb = AES.new(ke, AES.MODE_ECB)
+        tmp = aes_ecb.decrypt(cn_minus_1)
+
+        pn = bytes(a ^ b for a, b in zip(tmp[:len(cn)], cn))
+
+        last_block_full = cn + tmp[len(cn):]
+
+        pn_minus_1 = bytes(a ^ b
+                           for a, b
+                           in zip(aes_ecb.decrypt(last_block_full), iv))
+        plaintext_with_confounder = p_start + pn_minus_1 + pn
 
     h = HMAC.new(ki, plaintext_with_confounder, SHA1)
     if h.digest()[:12] != expected_hmac:
@@ -173,11 +171,13 @@ def decrypt_kerberos_aes_cts(key: bytes, usage: int, cipher: bytes) -> bytes:
 
 def encrypt_kerberos_aes_cts(session_key: bytes,
                              usage: int,
-                             plain_text: bytes):
+                             plain_text: bytes,
+                             confounder: Optional[bytes] = None):
     ki = derive_key(session_key, usage, 0x55)
     ke = derive_key(session_key, usage, 0xAA)
 
-    confounder = get_random_bytes(16)
+    if confounder is None:
+        confounder = get_random_bytes(16)
     basic_plaintext = confounder + plain_text
 
     h = HMAC.new(ki, basic_plaintext, SHA1)
@@ -188,6 +188,9 @@ def encrypt_kerberos_aes_cts(session_key: bytes,
 
     if n % 16 == 0:
         final_ctext = aes.encrypt(basic_plaintext)
+        x = final_ctext[-32:-16]
+        y = final_ctext[-16:]
+        final_ctext = final_ctext[:-32] + y + x
     else:
         pad_len = 16 - (n % 16)
         padded_data = basic_plaintext + b'\x00' * pad_len
@@ -250,42 +253,6 @@ def read_session_key(data: bytes) -> bytes:
     _key_type = int(key_type_obj)
 
     return session_key
-
-
-def seal_func_kerberos(session_key: bytes):
-    def _kerberos_sealer(
-            flags: int,
-            seq_num: int,
-            message_to_sign: bytes,
-            message_to_encrypt: bytes,
-            session_key: bytes) -> tuple[bytes, bytes]:
-        return gss_wrap_rc4(session_key,
-                            message_to_encrypt,
-                            seq_num)
-    return functools.partial(_kerberos_sealer, session_key=session_key)
-
-
-def gss_unwrap_kerberos(session_key: bytes):
-    def _kerberos_unwrap(
-            cipher_text: bytes,
-            auth_data: bytes,
-            session_key: bytes) -> bytes:
-        return gss_unwrap_rc4(session_key,
-                              cipher_text,
-                              auth_data)
-    return functools.partial(_kerberos_unwrap, session_key=session_key)
-
-
-def sign_func_kerberos(session_key: bytes):
-    def _kerberos_signer(
-            flags: int,
-            seq_num: int,
-            message_to_sign: bytes,
-            session_key: bytes) -> tuple[bytes, bytes]:
-        return gss_wrap_rc4(session_key,
-                            message_to_sign,
-                            seq_num)
-    return functools.partial(_kerberos_signer, session_key=session_key)
 
 
 KDC_ERR_PREAUTH_REQUIRED = 25
@@ -402,3 +369,18 @@ def parse_krb_error(data: bytes):
     raise KerberosErr(
         KRB_ERRORS.get(code, f"Unknown Kerberos Error: {code}")
     )
+
+
+def get_etype_from_ticket(ticket_bytes: bytes) -> int:
+    if not ticket_bytes.startswith(b'\x61'):
+        raise ValueError('Invalid ticket')
+
+    header_area = ticket_bytes[:256]
+    idx_a3 = header_area.find(b'\xa3')
+    if idx_a3 != -1:
+        etype_idx = header_area.find(b'\x02\x01', idx_a3)
+        if etype_idx != -1:
+            etype = header_area[etype_idx + 2]
+            return etype
+
+    raise ValueError('E-Type not found in ticket')

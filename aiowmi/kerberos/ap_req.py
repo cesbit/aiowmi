@@ -2,34 +2,43 @@ from typing import Optional
 from datetime import datetime, timezone
 from .asn1 import asn1_len, asn1_tag, asn1_gt, asn1_int, asn1_ostr
 from .tools import encrypt_kerberos_rc4, decrypt_kerberos_rc4
-from .const import OID_KERBEROS_V5, OID_MS_LEGACY_KRB, OID_SPNEGO
+from .tools import decrypt_kerberos_aes_cts, encrypt_kerberos_aes_cts
+from .const import OID_SPNEGO, OID_IETF_KRB5, OID_MS_KRB5
 
 
-def wrap_gss_kerberos(ap_req_bytes):
-    # MechTypes [0]
-    mech_types = asn1_tag(0, b'\x30\x0b' + OID_MS_LEGACY_KRB)
+def wrap_gss_kerberos(ap_req_bytes: bytes, etype: int):
+    if etype == 18:
+        outer_oid = OID_IETF_KRB5
+        inner_oid = OID_MS_KRB5
+    elif etype == 17:
+        outer_oid = OID_IETF_KRB5
+        inner_oid = OID_MS_KRB5
+    elif etype == 23:
+        outer_oid = OID_MS_KRB5
+        inner_oid = OID_MS_KRB5
+    else:
+        raise ValueError(f"Invalid E-type: {etype}")
 
-    # MechToken [2] -> GSS-API Token wrapper (0x60)
-    inner_token = OID_KERBEROS_V5 + b'\x01\x00' + ap_req_bytes
-    gss_token = b'\x60' + asn1_len(inner_token) + inner_token
+    mech_types_inner = b'\x30\x0b' + outer_oid
+    mech_types = asn1_tag(0, mech_types_inner)
 
-    # OctetString wrapper (0x04) MechToken [2]
-    mech_token = asn1_tag(2, asn1_ostr(gss_token))
+    inner_gss_content = inner_oid + b'\x01\x00' + ap_req_bytes
+    gss_wrapper = b'\x60' + asn1_len(inner_gss_content) + inner_gss_content
 
-    # NegTokenInit Sequence [30] -> Wrapper [0]
-    neg_token_body = mech_types + mech_token
-    neg_token_seq = b'\x30' + asn1_len(neg_token_body) + neg_token_body
-    neg_token_init = asn1_tag(0, neg_token_seq)
+    mech_token = asn1_tag(2, asn1_ostr(gss_wrapper))
 
-    # Application 0 (0x60) wrapper
-    final_body = OID_SPNEGO + neg_token_init
-    return b'\x60' + asn1_len(final_body) + final_body
+    neg_body = mech_types + mech_token
+    neg_init = asn1_tag(0, b'\x30' + asn1_len(neg_body) + neg_body)
+
+    final_payload = OID_SPNEGO + neg_init
+    return b'\x60' + asn1_len(final_payload) + final_payload
 
 
 def build_ap_req(username: str,
                  domain: str,
                  ticket: bytes,
-                 service_session_key: bytes) -> bytes:
+                 service_session_key: bytes,
+                 etype: int) -> bytes:
     now = datetime.now(timezone.utc)
     timestamp = now.strftime('%Y%m%d%H%M%SZ').encode('ascii')
 
@@ -68,10 +77,22 @@ def build_ap_req(username: str,
     # Encrypt authenticator
     auth_inner = b'\x30' + asn1_len(auth_body) + auth_body
     auth_asn1 = b'\x62' + asn1_len(auth_inner) + auth_inner
-    enc_auth = encrypt_kerberos_rc4(service_session_key, 11, auth_asn1)
 
-    etype_asn1 = asn1_tag(0, b'\x02\x01\x17')  # RC4-HMAC (23)
+    if etype == 18:  # AES-256
+        enc_auth = encrypt_kerberos_aes_cts(service_session_key, 11, auth_asn1)
+        etype_byte = b'\x12'
+    elif etype == 17:  # AES-128
+        enc_auth = encrypt_kerberos_aes_cts(service_session_key, 11, auth_asn1)
+        etype_byte = b'\x11'
+    elif etype == 23:  # RC4
+        enc_auth = encrypt_kerberos_rc4(service_session_key, 11, auth_asn1)
+        etype_byte = b'\x17'
+    else:
+        raise ValueError(f"Invalid E-type: {etype}")
+
+    etype_asn1 = asn1_tag(0, b'\x02\x01' + etype_byte)
     cipher_asn1 = asn1_tag(2, asn1_ostr(enc_auth))
+
     enc_body = etype_asn1 + cipher_asn1
     enc_part = asn1_tag(4, b'\x30' + asn1_len(enc_body) + enc_body)
 
@@ -88,44 +109,59 @@ def build_ap_req(username: str,
 
 
 def get_active_key(auth_bytes: bytes,
-                   service_session_key: bytes) -> tuple[Optional[bytes], int]:
+                   service_session_key: bytes,
+                   etype: int) -> tuple[Optional[bytes], int]:
     active_key, seq_number = None, 0
+    etype_idx = auth_bytes.find(bytes([0x02, 0x01, etype]))
+    if etype_idx == -1:
+        return None, 0
 
-    etype_idx = auth_bytes.find(b'\x02\x01\x17')
-    if etype_idx >= 0:
-        # Read new session key...
-        idx_a2 = auth_bytes.find(b'\xa2', etype_idx)
-        idx_04 = auth_bytes.find(b'\x04', idx_a2)
+    # Read new session key...
+    idx_a2 = auth_bytes.find(b'\xa2', etype_idx)
+    idx_04 = auth_bytes.find(b'\x04', idx_a2)
+    if idx_04 == -1:
+        return None, 0
 
-        pos = idx_04 + 1
-        length_byte = auth_bytes[pos]
-        pos += 1
-        if length_byte & 0x80:
-            n = length_byte & 0x7f
-            length = int.from_bytes(auth_bytes[pos: pos + n], 'big')
-            pos += n
-        else:
-            length = length_byte
+    pos = idx_04 + 1
+    length_byte = auth_bytes[pos]
+    pos += 1
+    if length_byte & 0x80:
+        n = length_byte & 0x7f
+        length = int.from_bytes(auth_bytes[pos: pos + n], 'big')
+        pos += n
+    else:
+        length = length_byte
 
-        cipher_blob = auth_bytes[pos: pos + length]
+    cipher_blob = auth_bytes[pos: pos + length]
 
+    if etype == 0x17:
         decrypted_raw = \
             decrypt_kerberos_rc4(service_session_key, 12, cipher_blob)
         asn1_data = decrypted_raw[8:]  # Skip 8 bytes confounder
+    elif etype in [0x11, 0x12]:
+        decrypted_raw = \
+            decrypt_kerberos_aes_cts(service_session_key, 12, cipher_blob)
+        asn1_data = decrypted_raw[16:]  # Skip 16 bytes confounder
 
-        KEY_MARKER = b'\xa1\x12\x04\x10'
-        key_idx = asn1_data.find(KEY_MARKER)
-        if key_idx != -1:
-            active_key = asn1_data[key_idx + 4: key_idx + 4 + 16]
+    if etype == 0x12:  # AES256
+        KEY_MARKER = b'\x04\x20'
+        k_len = 32
+    else:  # AES128 / RC4
+        KEY_MARKER = b'\x04\x10'
+        k_len = 16
 
-        SEQ_MARKER = b'\xa3'
-        seq_idx = asn1_data.find(SEQ_MARKER)
-        if seq_idx != -1:
-            int_tag_idx = asn1_data.find(b'\x02', seq_idx)
-            if int_tag_idx != -1 and int_tag_idx < seq_idx + 4:
-                int_len = asn1_data[int_tag_idx + 1]
-                offset = int_tag_idx + 2
-                seq_bytes = asn1_data[offset: offset + int_len]
-                seq_number = int.from_bytes(seq_bytes, 'big')
+    key_idx = asn1_data.find(KEY_MARKER)
+    if key_idx != -1:
+        active_key = asn1_data[key_idx + 2: key_idx + 2 + k_len]
+
+    SEQ_MARKER = b'\xa3'
+    seq_idx = asn1_data.find(SEQ_MARKER)
+    if seq_idx != -1:
+        int_tag_idx = asn1_data.find(b'\x02', seq_idx)
+        if int_tag_idx != -1 and int_tag_idx < seq_idx + 4:
+            int_len = asn1_data[int_tag_idx + 1]
+            offset = int_tag_idx + 2
+            seq_bytes = asn1_data[offset: offset + int_len]
+            seq_number = int.from_bytes(seq_bytes, 'big')
 
     return active_key, seq_number

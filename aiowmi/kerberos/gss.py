@@ -2,6 +2,7 @@ import struct
 from Crypto.Hash import HMAC, MD5
 from Crypto.Cipher import ARC4
 from ..tools import get_random_bytes
+from .tools import encrypt_kerberos_aes_cts, decrypt_kerberos_aes_cts
 
 
 GSS_WRAP_HEADER = b'\x60\x2b\x06\x09\x2a\x86\x48\x86\xf7\x12\x01\x02\x02'
@@ -93,3 +94,62 @@ def gss_unwrap_rc4(session_key: bytes,
         raise Exception(f"Integrity Check Failed! Server Seq was: {svr_seq}")
 
     return data
+
+
+def gss_wrap_aes(session_key: bytes, data: bytes, seq_num: int):
+    pad = (16 - (len(data) % 16)) & 15
+    pad_str = b'\xFF' * pad
+
+    header_for_hash = (
+        b'\x05\x04\x06\xff\x00\x00\x00\x00' +
+        struct.pack('>Q', seq_num)
+    )
+
+    plaintext = data + pad_str + header_for_hash
+    raw_cipher = encrypt_kerberos_aes_cts(session_key, 24, plaintext)
+
+    def rotate(data, numBytes):
+        numBytes %= len(data)
+        left = len(data) - numBytes
+        return data[left:] + data[:left]
+
+    rrc = 28
+    total_rotate = rrc + pad
+    cipher_rotated = rotate(raw_cipher, total_rotate)
+
+    wire_header = (
+        b'\x05\x04\x06\xff' +
+        struct.pack('>H', pad) +
+        struct.pack('>H', rrc) +
+        struct.pack('>Q', seq_num)
+    )
+    split_offset = 16 + rrc + pad
+
+    ret2 = wire_header + cipher_rotated[:split_offset]
+    ret1 = cipher_rotated[split_offset:]
+
+    return ret1, ret2
+
+
+def gss_unwrap_aes(session_key: bytes, cipher_text: bytes, auth_data: bytes):
+    header = auth_data[:16]
+    pad = struct.unpack('>H', header[4:6])[0]  # EC
+    rrc = struct.unpack('>H', header[6:8])[0]  # RRC
+
+    cipher_from_trailer = auth_data[16:]
+
+    rotated_blob = cipher_from_trailer + cipher_text
+
+    def unrotate(data, n):
+        if not data:
+            return data
+        n %= len(data)
+        return data[n:] + data[:n]
+
+    full_cipher_blob = unrotate(rotated_blob, rrc + pad)
+
+    decrypted_payload = \
+        decrypt_kerberos_aes_cts(session_key, 22, full_cipher_blob)
+    actual_data = decrypted_payload[16: -(pad + 16)]
+
+    return actual_data

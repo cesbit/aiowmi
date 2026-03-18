@@ -7,8 +7,9 @@ from .kerberos.cache import KerberosCache
 from .kerberos.krb5_pdu import get_neg_token, build_alter_context
 from .kerberos.tgs import get_tgs
 from .kerberos.tgt import get_tgt
-from .kerberos.tools import gss_unwrap_kerberos
-from .kerberos.tools import sign_func_kerberos, seal_func_kerberos
+from .kerberos.tools import get_etype_from_ticket
+from .kerberos.wrappers import sign_func_kerberos, seal_func_kerberos
+from .kerberos.wrappers import gss_unwrap_kerberos
 from .ntlm.auth_authenticate import NTLMAuthAuthenticate
 from .ntlm.auth_challange import NTLMAuthChallenge
 from .ntlm.auth_negotiate import NTLMAuthNegotiate
@@ -206,7 +207,7 @@ class Connection:
 
         self._kerberos_cache.write(self._tgt, self._tgs, logger)
 
-    async def negotiate_kerberos(self, max_retry: int = 3) -> Protocol:
+    async def negotiate_kerberos(self, max_retry: int = 1) -> Protocol:
         if not self._domain:
             raise Exception('domain is required for Kerberos authentication')
         attempt = 1
@@ -220,7 +221,7 @@ class Connection:
             proto._context_id = 0x0001357f
 
             if not has_keys:
-                logger.info('Start Kerberos negotion for TGT/TGS')
+                logger.info('Start Kerberos negotiation for TGT/TGS')
                 await self._negotiate_kerberos()
                 has_keys = True
             else:
@@ -248,10 +249,13 @@ class Connection:
 
     async def _bind_kerberos(self, iid: bytes, proto: Protocol):
         ticket, service_session_key = self._tgs
+        etype = get_etype_from_ticket(ticket)
         ap_req = build_ap_req(self._username,
                               self._domain,
-                              ticket, service_session_key)
-        auth_value = wrap_gss_kerberos(ap_req)
+                              ticket,
+                              service_session_key,
+                              etype)
+        auth_value = wrap_gss_kerberos(ap_req, etype)
         bind_pkg = proto._dcom.get_bind_kerberos_pkg(
             iid,
             auth_value,
@@ -260,13 +264,14 @@ class Connection:
         )
         rpc_bind_ack = await proto.get_dcom_response(bind_pkg)
         active_key, seq_number = get_active_key(rpc_bind_ack.auth.auth_value,
-                                                service_session_key)
+                                                service_session_key,
+                                                etype)
         if active_key is None:
             raise NoNewActiveKey()
         proto._auth_type = rpc_bind_ack.auth.auth_type
         proto._auth_level = rpc_bind_ack.auth.auth_level
 
-        neg_token = get_neg_token(service_session_key, seq_number)
+        neg_token = get_neg_token(service_session_key, seq_number, etype)
         alter_context_pkg = build_alter_context(
             iid,
             proto._dcom.get_new_call_id(),
@@ -275,11 +280,10 @@ class Connection:
             neg_token,
         )
         _ = await proto.get_dcom_response(alter_context_pkg)
-
         if proto._auth_level >= RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
-            proto._client_sign = sign_func_kerberos(active_key)
-            proto._client_seal = seal_func_kerberos(active_key)
-            proto._server_seal = gss_unwrap_kerberos(active_key)
+            proto._client_sign = sign_func_kerberos(active_key, etype)
+            proto._client_seal = seal_func_kerberos(active_key, etype)
+            proto._server_seal = gss_unwrap_kerberos(active_key, etype)
 
     async def negotiate_ntlm(self) -> Protocol:
         proto = self._protocol
@@ -304,7 +308,7 @@ class Connection:
         request.set_pdu_data(ntlm_login_pkg)
 
         request_pkg = request.sign_data(proto)
-
+        print(request_pkg)
         rpc_response: RpcResponse = \
             await proto.get_dcom_response(
                 request_pkg,
@@ -329,6 +333,7 @@ class Connection:
             IID_IWbemLevel1Login)
 
         rci_pkg = remote_create_instance.get_data()
+        context_id = proto._context_id
 
         request = RpcRequest(op_num=4)
         request.set_pdu_data(rci_pkg)
@@ -376,6 +381,6 @@ class Connection:
         proto._auth_level = max(
             interface.scm_reply_info_data.authn_hint,
             m_auth_level)
-
+        proto._context_id = context_id
         await bind_func(IID_IWbemLevel1Login, proto)
         return proto
