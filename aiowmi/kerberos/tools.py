@@ -177,15 +177,15 @@ def encrypt_kerberos_aes_cts(session_key: bytes,
 
     if confounder is None:
         confounder = get_random_bytes(16)
-    basic_plaintext = confounder + plain_text
+    plaintext = confounder + plain_text
 
-    h = HMAC.new(ki, basic_plaintext, SHA1)
+    h = HMAC.new(ki, plaintext, SHA1)
     checksum = h.digest()[:12]
 
     aes = AES.new(ke, AES.MODE_CBC, b'\x00' * 16)
 
-    pad_len = (16 - (len(basic_plaintext) % 16)) % 16
-    padded_data = basic_plaintext + (b'\x00' * pad_len)
+    pad_len = (16 - (len(plaintext) % 16)) % 16
+    padded_data = plaintext + (b'\x00' * pad_len)
 
     ctext = aes.encrypt(padded_data)
 
