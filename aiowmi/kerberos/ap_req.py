@@ -142,6 +142,8 @@ def get_active_key(auth_bytes: bytes,
         decrypted_raw = \
             decrypt_kerberos_aes_cts(service_session_key, 12, cipher_blob)
         asn1_data = decrypted_raw[16:]  # Skip 16 bytes confounder
+    else:
+        raise ValueError(f'Invalid E-type: {etype}')
 
     if etype == 0x12:  # AES256
         KEY_MARKER = b'\x04\x20'

@@ -66,12 +66,11 @@ def _nfold(ba, nbytes):
     return bytes(reduce(add_ones_complement, parts))
 
 
-def derive_key(base_key: bytes, usage: int, payload: int = None) -> bytes:
+def derive_key(base_key: bytes, usage: int, payload: int) -> bytes:
     key_len = len(base_key)  # 16 or 32
 
     constant = struct.pack('>I', usage)
-    if payload is not None:
-        constant += bytes([payload])
+    constant += bytes([payload])
 
     nfolded = _nfold(constant, 16)
 
@@ -369,18 +368,3 @@ def parse_krb_error(data: bytes):
     raise KerberosErr(
         KRB_ERRORS.get(code, f"Unknown Kerberos Error: {code}")
     )
-
-
-def get_etype_from_ticket(ticket_bytes: bytes) -> int:
-    if not ticket_bytes.startswith(b'\x61'):
-        raise ValueError('Invalid ticket')
-
-    header_area = ticket_bytes[:256]
-    idx_a3 = header_area.find(b'\xa3')
-    if idx_a3 != -1:
-        etype_idx = header_area.find(b'\x02\x01', idx_a3)
-        if etype_idx != -1:
-            etype = header_area[etype_idx + 2]
-            return etype
-
-    raise ValueError('E-Type not found in ticket')

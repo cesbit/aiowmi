@@ -7,7 +7,6 @@ from .kerberos.cache import KerberosCache
 from .kerberos.krb5_pdu import get_neg_token, build_alter_context
 from .kerberos.tgs import get_tgs
 from .kerberos.tgt import get_tgt
-from .kerberos.tools import get_etype_from_ticket
 from .kerberos.wrappers import sign_func_kerberos, seal_func_kerberos
 from .kerberos.wrappers import gss_unwrap_kerberos
 from .ntlm.auth_authenticate import NTLMAuthAuthenticate
@@ -248,8 +247,7 @@ class Connection:
         return iface
 
     async def _bind_kerberos(self, iid: bytes, proto: Protocol):
-        ticket, service_session_key = self._tgs
-        etype = get_etype_from_ticket(ticket)
+        ticket, service_session_key, etype = self._tgs
         ap_req = build_ap_req(self._username,
                               self._domain,
                               ticket,
@@ -266,7 +264,7 @@ class Connection:
         active_key, seq_number = get_active_key(rpc_bind_ack.auth.auth_value,
                                                 service_session_key,
                                                 etype)
-        if active_key is None:
+        if active_key is None and proto._client_sign is None:
             raise NoNewActiveKey()
         proto._auth_type = rpc_bind_ack.auth.auth_type
         proto._auth_level = rpc_bind_ack.auth.auth_level
@@ -280,7 +278,7 @@ class Connection:
             neg_token,
         )
         _ = await proto.get_dcom_response(alter_context_pkg)
-        if proto._auth_level >= RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
+        if active_key and proto._auth_level >= RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
             proto._client_sign = sign_func_kerberos(active_key, etype)
             proto._client_seal = seal_func_kerberos(active_key, etype)
             proto._server_seal = gss_unwrap_kerberos(active_key, etype)
@@ -308,7 +306,7 @@ class Connection:
         request.set_pdu_data(ntlm_login_pkg)
 
         request_pkg = request.sign_data(proto)
-        print(request_pkg)
+        # print(request_pkg)
         rpc_response: RpcResponse = \
             await proto.get_dcom_response(
                 request_pkg,

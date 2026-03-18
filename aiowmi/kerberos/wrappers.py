@@ -27,7 +27,7 @@ def seal_func_kerberos(session_key: bytes, etype: int):
     elif etype == 23:
         sealer = _sealer_rc4
     else:
-        ValueError(f"Invalid E-type: {etype}")
+        raise ValueError(f"Invalid E-type: {etype}")
     return functools.partial(sealer, session_key=session_key)
 
 
@@ -52,7 +52,7 @@ def gss_unwrap_kerberos(session_key: bytes, etype: int):
     elif etype == 23:
         unwrapper = _unwrap_rc4
     else:
-        ValueError(f"Invalid E-type: {etype}")
+        raise ValueError(f"Invalid E-type: {etype}")
     return functools.partial(unwrapper, session_key=session_key)
 
 
@@ -79,5 +79,5 @@ def sign_func_kerberos(session_key: bytes, etype: int):
     elif etype == 23:
         signer = _signer_rc4
     else:
-        ValueError(f"Invalid E-type: {etype}")
+        raise ValueError(f"Invalid E-type: {etype}")
     return functools.partial(signer, session_key=session_key)

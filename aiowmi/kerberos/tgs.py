@@ -162,7 +162,7 @@ def build_tgs_req(username: str,
 
     # Etype list: RC4 (23), AES128 (16), AES256 (18)
     # etypes = asn1_int(23) + asn1_int(16) + asn1_int(18)
-    etypes = asn1_int(23)
+    etypes = asn1_int(18)
     nonce = random.getrandbits(31)
 
     req_body_content = (
@@ -218,7 +218,7 @@ def extract_ticket(data):
 
 
 def get_service_key(resp_bytes: bytes,
-                    session_key: bytes) -> tuple[bytes, bytes]:
+                    session_key: bytes) -> tuple[bytes, bytes, int]:
     raw_obj, _ = decoder.decode(resp_bytes)
     enc_part = raw_obj.getComponentByPosition(5)
 
@@ -237,6 +237,7 @@ def get_service_key(resp_bytes: bytes,
     inner_obj, _ = decoder.decode(payload)
 
     key_sequence = inner_obj.getComponentByPosition(0)
+    service_etype = int(key_sequence.getComponentByPosition(0))
     service_session_key = bytes(key_sequence.getComponentByPosition(1))
 
     ticket = raw_obj.getComponentByPosition(4)
@@ -251,12 +252,13 @@ def get_service_key(resp_bytes: bytes,
         except ValueError:
             pass
 
-    return ticket_bytes, service_session_key
+    return ticket_bytes, service_session_key, service_etype
 
 
 async def get_tgs(username: str, domain: str, host: str,
                   as_rep_bytes: bytes, base_key: bytes,
-                  kdc_host: str, kdc_port: int = 88) -> tuple[bytes, bytes]:
+                  kdc_host: str,
+                  kdc_port: int = 88) -> tuple[bytes, bytes, int]:
     tgs_session_key = get_session_key(as_rep_bytes, base_key)
     tgs_ticket = extract_ticket(as_rep_bytes)
     tgs_req = build_tgs_req(username,
@@ -266,5 +268,5 @@ async def get_tgs(username: str, domain: str, host: str,
                             ("host", host))
     as_res_bytes = await send_kerberos_packet(tgs_req, kdc_host, kdc_port)
     parse_krb_error(as_res_bytes)
-    ticket, service_key = get_service_key(as_res_bytes, tgs_session_key)
-    return ticket, service_key
+    ticket, service_key, etype = get_service_key(as_res_bytes, tgs_session_key)
+    return ticket, service_key, etype

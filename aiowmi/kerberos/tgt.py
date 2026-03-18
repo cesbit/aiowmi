@@ -52,7 +52,7 @@ def aes_string_to_key(password: str, salt: str, key_len: int = 32):
     key_len should be 16 for AES-128 or 32 for AES-256
     """
     tkey = PBKDF2(
-        password.encode(),
+        password,
         salt.encode(),
         dkLen=key_len,
         count=4096,
