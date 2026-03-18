@@ -186,23 +186,22 @@ def encrypt_kerberos_aes_cts(session_key: bytes,
     n = len(basic_plaintext)
 
     if n % 16 == 0:
-        final_ctext = aes.encrypt(basic_plaintext)
-        x = final_ctext[-32:-16]
-        y = final_ctext[-16:]
-        final_ctext = final_ctext[:-32] + y + x
+        pad_len = 0
+        padded_data = basic_plaintext
     else:
         pad_len = 16 - (n % 16)
         padded_data = basic_plaintext + b'\x00' * pad_len
-        ctext = aes.encrypt(padded_data)
 
-        last_full_block = ctext[-32:-16]
-        truncated_block = ctext[-16:]
+    ctext = aes.encrypt(padded_data)
 
-        final_ctext = (
-            ctext[:-32] +
-            truncated_block +
-            last_full_block[:16-pad_len]
-        )
+    last_full_block = ctext[-32:-16]
+    truncated_block = ctext[-16:]
+
+    final_ctext = (
+        ctext[:-32] +
+        truncated_block +
+        last_full_block[:16-pad_len]
+    )
 
     return final_ctext + checksum
 
