@@ -183,14 +183,9 @@ def encrypt_kerberos_aes_cts(session_key: bytes,
     checksum = h.digest()[:12]
 
     aes = AES.new(ke, AES.MODE_CBC, b'\x00' * 16)
-    n = len(basic_plaintext)
 
-    if n % 16 == 0:
-        pad_len = 0
-        padded_data = basic_plaintext
-    else:
-        pad_len = 16 - (n % 16)
-        padded_data = basic_plaintext + b'\x00' * pad_len
+    pad_len = (16 - (len(basic_plaintext) % 16)) % 16
+    padded_data = basic_plaintext + (b'\x00' * pad_len)
 
     ctext = aes.encrypt(padded_data)
 
