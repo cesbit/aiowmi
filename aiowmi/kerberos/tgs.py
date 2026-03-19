@@ -161,8 +161,8 @@ def build_tgs_req(username: str,
         ))
     )
 
-    # Etype list: RC4 (23), AES128 (16), AES256 (18)
-    # etypes = asn1_int(23) + asn1_int(16) + asn1_int(18)
+    # Etype list: RC4 (23), AES128 (17), AES256 (18)
+    # etypes = asn1_int(23) + asn1_int(17) + asn1_int(18)
     etypes = asn1_int(18)
     nonce = random.getrandbits(31)
 
