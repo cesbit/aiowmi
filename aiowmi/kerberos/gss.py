@@ -103,8 +103,11 @@ def gss_wrap_aes(session_key: bytes,
     pad = (16 - (len(data) % 16)) & 15
     pad_str = b'\xFF' * pad
 
+    rcc = 0
     header_for_hash = (
-        b'\x05\x04\x06\xff\x00\x00\x00\x00' +
+        b'\x05\x04\x06\xff' +
+        struct.pack('>H', pad) +
+        struct.pack('>H', rcc) +
         struct.pack('>Q', seq_num)
     )
 
