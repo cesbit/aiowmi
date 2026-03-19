@@ -4,6 +4,7 @@ from .asn1 import asn1_len, asn1_tag, asn1_gt, asn1_int, asn1_ostr
 from .tools import encrypt_kerberos_rc4, decrypt_kerberos_rc4
 from .tools import decrypt_kerberos_aes_cts, encrypt_kerberos_aes_cts
 from .const import OID_SPNEGO, OID_IETF_KRB5, OID_MS_KRB5
+from ..exceptions import NoNewActiveKey
 
 
 def wrap_gss_kerberos(ap_req_bytes: bytes, etype: int):
@@ -112,58 +113,172 @@ def get_active_key(auth_bytes: bytes,
                    service_session_key: bytes,
                    etype: int) -> tuple[Optional[bytes], int]:
     active_key, seq_number = None, 0
+
     etype_idx = auth_bytes.find(bytes([0x02, 0x01, etype]))
     if etype_idx == -1:
         return None, 0
-
-    # Read new session key...
-    idx_a2 = auth_bytes.find(b'\xa2', etype_idx)
-    idx_04 = auth_bytes.find(b'\x04', idx_a2)
+    idx_04 = auth_bytes.find(b'\x04', etype_idx)
     if idx_04 == -1:
         return None, 0
 
     pos = idx_04 + 1
-    length_byte = auth_bytes[pos]
+    lb = auth_bytes[pos]
     pos += 1
-    if length_byte & 0x80:
-        n = length_byte & 0x7f
+    if lb & 0x80:
+        n = lb & 0x7f
         length = int.from_bytes(auth_bytes[pos: pos + n], 'big')
         pos += n
-    else:
-        length = length_byte
-
+    else: length = lb
     cipher_blob = auth_bytes[pos: pos + length]
 
-    if etype == 0x17:
-        decrypted_raw = \
+    if etype == 23:
+        decrypted = \
             decrypt_kerberos_rc4(service_session_key, 12, cipher_blob)
-        asn1_data = decrypted_raw[8:]  # Skip 8 bytes confounder
-    elif etype in [0x11, 0x12]:
-        decrypted_raw = \
+        asn1_data = decrypted[8:]
+    elif etype in [17, 18]:
+        decrypted = \
             decrypt_kerberos_aes_cts(service_session_key, 12, cipher_blob)
-        asn1_data = decrypted_raw[16:]  # Skip 16 bytes confounder
+        asn1_data = decrypted[16:]
     else:
-        raise ValueError(f'Invalid E-type: {etype}')
+        raise ValueError(f"Invalid E-type: {etype}")
 
-    if etype == 0x12:  # AES256
-        KEY_MARKER = b'\x04\x20'
-        k_len = 32
-    else:  # AES128 / RC4
-        KEY_MARKER = b'\x04\x10'
-        k_len = 16
+    def get_tag_data(data: bytes, target_tag: int) -> Optional[bytes]:
+        p = 0
+        while p < len(data):
+            tag = data[p]
+            if tag == target_tag:
+                try:
+                    p += 1
+                    lb = data[p]
+                    p += 1
+                    if lb & 0x80:
+                        n_lb = lb & 0x7f
+                        c_len = int.from_bytes(data[p: p+n_lb], 'big')
+                        p += n_lb
+                    else:
+                        c_len = lb
+                    return data[p : p + c_len]
+                except:
+                    return None
+            p += 1
+        return None
 
-    key_idx = asn1_data.find(KEY_MARKER)
-    if key_idx != -1:
-        active_key = asn1_data[key_idx + 2: key_idx + 2 + k_len]
+    subkey_cont = get_tag_data(asn1_data, 0xa2)
+    if subkey_cont:
+        key_seq = get_tag_data(subkey_cont, 0x30)
+        if key_seq:
+            key_val_wrapper = get_tag_data(key_seq, 0xa1)
+            if key_val_wrapper:
+                active_key = get_tag_data(key_val_wrapper, 0x04)
 
-    SEQ_MARKER = b'\xa3'
-    seq_idx = asn1_data.find(SEQ_MARKER)
-    if seq_idx != -1:
-        int_tag_idx = asn1_data.find(b'\x02', seq_idx)
-        if int_tag_idx != -1 and int_tag_idx < seq_idx + 4:
-            int_len = asn1_data[int_tag_idx + 1]
-            offset = int_tag_idx + 2
-            seq_bytes = asn1_data[offset: offset + int_len]
+    seq_cont = get_tag_data(asn1_data, 0xa3)
+    if seq_cont:
+        seq_bytes = get_tag_data(seq_cont, 0x02)
+        if seq_bytes:
             seq_number = int.from_bytes(seq_bytes, 'big')
+
+    return active_key, seq_number
+
+import struct
+import binascii
+from typing import Optional, Tuple
+
+def get_active_key(auth_bytes: bytes,
+                   service_session_key: bytes,
+                   etype: int) -> Tuple[Optional[bytes], Optional[int]]:
+    active_key, seq_number = None, None
+    kerberos_data = auth_bytes
+
+    if auth_bytes.startswith(b'\xa1'):
+        idx_a2 = auth_bytes.find(b'\xa2')
+        if idx_a2 == -1:
+            raise NoNewActiveKey()
+
+        idx_04 = auth_bytes.find(b'\x04', idx_a2)
+        if idx_04 != -1:
+            pos = idx_04 + 1
+            lb = auth_bytes[pos]
+            pos += 1
+            if lb & 0x80:
+                n = lb & 0x7f
+                length = int.from_bytes(auth_bytes[pos:pos+n], 'big')
+                pos += n
+            else:
+                length = lb
+            kerberos_data = auth_bytes[pos: pos + length]
+        else:
+            raise NoNewActiveKey()
+
+    etype_idx = kerberos_data.find(bytes([0x02, 0x01, etype]))
+    if etype_idx == -1:
+        return None, None
+
+    idx_04_cipher = kerberos_data.find(b'\x04', etype_idx)
+    if idx_04_cipher == -1:
+        return None, None
+
+    pos = idx_04_cipher + 1
+    lb = kerberos_data[pos]
+    pos += 1
+    if lb & 0x80:
+        n = lb & 0x7f
+        c_length = int.from_bytes(kerberos_data[pos : pos + n], 'big')
+        pos += n
+    else:
+        c_length = lb
+    cipher_blob = kerberos_data[pos : pos + c_length]
+
+    if etype == 23:  # RC4
+        decrypted = \
+            decrypt_kerberos_rc4(service_session_key, 12, cipher_blob)
+        asn1_data = decrypted[8:]  # Skip 8 bytes confounder
+    elif etype in [17, 18]:  # AES
+        decrypted = \
+            decrypt_kerberos_aes_cts(service_session_key, 12, cipher_blob)
+        asn1_data = decrypted[16:]  # Skip 16 bytes confounder
+    else:
+        raise ValueError(f"Invalid E-type: {etype}")
+
+    def peel_tag(data: bytes, target_tag: int):
+        if not data:
+            return None
+        p = 0
+        while p < len(data):
+            tag = data[p]
+            p += 1
+            if p >= len(data):
+                break
+            lb = data[p]
+            p += 1
+            if lb & 0x80:
+                n_lb = lb & 0x7f
+                c_len = int.from_bytes(data[p: p+n_lb], 'big')
+                p += n_lb
+            else:
+                c_len = lb
+            if tag == target_tag:
+                return data[p : p + c_len]
+            p += c_len
+        return None
+
+    current = asn1_data
+    if asn1_data.startswith(b'\x7b'):
+        current = peel_tag(asn1_data, 0x7b)
+        if current and current.startswith(b'\x30'):
+            current = peel_tag(current, 0x30)
+
+    subkey_cont = peel_tag(current, 0xa2)
+    if subkey_cont:
+        k_seq = peel_tag(subkey_cont, 0x30)
+        if k_seq:
+            k_val_wrap = peel_tag(k_seq, 0xa1)
+            if k_val_wrap:
+                active_key = peel_tag(k_val_wrap, 0x04)
+
+    seq_cont = peel_tag(current, 0xa3)
+    if seq_cont:
+        inner_seq = peel_tag(seq_cont, 0x02)
+        if inner_seq:
+            seq_number = int.from_bytes(inner_seq, 'big')
 
     return active_key, seq_number

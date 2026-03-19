@@ -265,11 +265,15 @@ class Connection:
         active_key, seq_number = get_active_key(rpc_bind_ack.auth.auth_value,
                                                 service_session_key,
                                                 etype)
-        if active_key is None and proto._client_sign is None:
-            raise NoNewActiveKey()
+        if active_key is None:
+            active_key = service_session_key
+
+        if seq_number is None:
+            seq_number = 1
+            proto._dcom._seq_num += 1
+
         proto._auth_type = rpc_bind_ack.auth.auth_type
         proto._auth_level = rpc_bind_ack.auth.auth_level
-        proto._dcom._seq_num = 0
 
         neg_token = get_neg_token(service_session_key, seq_number, etype)
         alter_context_pkg = build_alter_context(

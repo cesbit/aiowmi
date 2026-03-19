@@ -95,10 +95,12 @@ def build_as_req(username: str, domain: str, pa_enc: bytes = b'') -> bytes:
 
 def build_full_as_req(username: str, domain: str, base_key: bytes, etype: int):
     now = datetime.now(timezone.utc)
+    micro = now.microsecond
+
     ts_str = now.strftime("%Y%m%d%H%M%SZ").encode()
     original_plain_body = (
         asn1_tag(0, asn1_gt(ts_str)) +       # [0] pausec (GeneralizedTime)
-        asn1_tag(1, asn1_int(0))             # [1] pusec (Microseconds, 0)
+        asn1_tag(1, asn1_int(micro))         # [1] pusec (Microseconds)
     )
     original_plain = asn1_seq(original_plain_body)
 
