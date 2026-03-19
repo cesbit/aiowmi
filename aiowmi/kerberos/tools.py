@@ -138,8 +138,8 @@ def decrypt_kerberos_aes_cts(key: bytes, usage: int, cipher: bytes) -> bytes:
             p_start = cipher_cbc.decrypt(ciphertext[:m])
             iv = ciphertext[m-block_size:m]
 
-        cn_minus_1 = ciphertext[m : m + block_size]
-        cn = ciphertext[m + block_size :]
+        cn_minus_1 = ciphertext[m: m + block_size]
+        cn = ciphertext[m + block_size:]
 
         tmp = aes_ecb.decrypt(cn_minus_1)
 

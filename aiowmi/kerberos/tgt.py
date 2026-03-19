@@ -1,4 +1,4 @@
-import hashlib
+from typing import Tuple
 from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Cipher import AES
 from Crypto.Hash import SHA1
@@ -8,7 +8,7 @@ from .asn1 import get_asn1_len
 from .tools import parse_krb_error
 
 
-def extract_salt_and_etype(error_data: bytes) -> tuple[str, int]:
+def extract_salt_and_etype(error_data: bytes) -> Tuple[str, int]:
     if error_data[0] != 0x7e:
         raise ValueError("Invalid KRB-ERROR packet")
 
@@ -78,7 +78,7 @@ def aes_string_to_key(password: str, salt: str, key_len: int = 32):
 
 
 async def get_tgt(username: str, password: str, domain: str,
-                  kdc_host: str, kdc_port: int = 88) -> tuple[bytes, bytes]:
+                  kdc_host: str, kdc_port: int = 88) -> Tuple[bytes, bytes]:
     as_req = build_as_req(username, domain)
     resp = await send_kerberos_packet(as_req, kdc_host, kdc_port)
     parse_krb_error(resp)

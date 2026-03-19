@@ -1,6 +1,6 @@
 import pickle
 from logging import Logger
-from typing import Optional
+from typing import Optional, Tuple
 
 
 class KerberosCache:
@@ -16,12 +16,12 @@ class KerberosCache:
         If None, memory is used (must keep the KerberosCache alive)
         """
         self._file_path = file_path
-        self._tgt: Optional[tuple[bytes, bytes]] = None
-        self._tgs: Optional[tuple[bytes, bytes, int]] = None
+        self._tgt: Optional[Tuple[bytes, bytes]] = None
+        self._tgs: Optional[Tuple[bytes, bytes, int]] = None
 
-    def open(self, logger: Logger) -> tuple[
-                Optional[tuple[bytes, bytes]],
-                Optional[tuple[bytes, bytes, int]]]:
+    def open(self, logger: Logger) -> Tuple[
+                Optional[Tuple[bytes, bytes]],
+                Optional[Tuple[bytes, bytes, int]]]:
         if self._file_path is not None and \
                 (self._tgs is None or self._tgt is None):
             try:
@@ -36,8 +36,8 @@ class KerberosCache:
         return self._tgt, self._tgs
 
     def write(self,
-              tgt: tuple[bytes, bytes],
-              tgs: tuple[bytes, bytes, int],
+              tgt: Tuple[bytes, bytes],
+              tgs: Tuple[bytes, bytes, int],
               logger: Logger):
         self._tgt = tgt
         self._tgs = tgs

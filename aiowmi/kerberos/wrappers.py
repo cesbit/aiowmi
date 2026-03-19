@@ -1,4 +1,5 @@
 import functools
+from typing import Tuple
 from .gss import gss_wrap_rc4, gss_wrap_aes, gss_unwrap_rc4, gss_unwrap_aes
 
 
@@ -8,7 +9,7 @@ def seal_func_kerberos(session_key: bytes, etype: int):
             seq_num: int,
             message_to_sign: bytes,
             message_to_encrypt: bytes,
-            session_key: bytes) -> tuple[bytes, bytes]:
+            session_key: bytes) -> Tuple[bytes, bytes]:
         return gss_wrap_rc4(session_key,
                             message_to_encrypt,
                             seq_num)
@@ -18,7 +19,7 @@ def seal_func_kerberos(session_key: bytes, etype: int):
             seq_num: int,
             message_to_sign: bytes,
             message_to_encrypt: bytes,
-            session_key: bytes) -> tuple[bytes, bytes]:
+            session_key: bytes) -> Tuple[bytes, bytes]:
         return gss_wrap_aes(session_key,
                             message_to_encrypt,
                             seq_num)
@@ -61,7 +62,7 @@ def sign_func_kerberos(session_key: bytes, etype: int):
             flags: int,
             seq_num: int,
             message_to_sign: bytes,
-            session_key: bytes) -> tuple[bytes, bytes]:
+            session_key: bytes) -> Tuple[bytes, bytes]:
         return gss_wrap_rc4(session_key,
                             message_to_sign,
                             seq_num)
@@ -70,7 +71,7 @@ def sign_func_kerberos(session_key: bytes, etype: int):
             flags: int,
             seq_num: int,
             message_to_sign: bytes,
-            session_key: bytes) -> tuple[bytes, bytes]:
+            session_key: bytes) -> Tuple[bytes, bytes]:
         return gss_wrap_aes(session_key,
                             message_to_sign,
                             seq_num)

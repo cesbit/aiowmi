@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Tuple
 from datetime import datetime, timezone
 from .asn1 import asn1_len, asn1_tag, asn1_gt, asn1_int, asn1_ostr
 from .tools import encrypt_kerberos_rc4, decrypt_kerberos_rc4
@@ -111,7 +111,7 @@ def build_ap_req(username: str,
 
 def get_active_key(auth_bytes: bytes,
                    service_session_key: bytes,
-                   etype: int) -> tuple[Optional[bytes], int]:
+                   etype: int) -> Tuple[Optional[bytes], int]:
     active_key, seq_number = None, 0
 
     etype_idx = auth_bytes.find(bytes([0x02, 0x01, etype]))
@@ -128,7 +128,8 @@ def get_active_key(auth_bytes: bytes,
         n = lb & 0x7f
         length = int.from_bytes(auth_bytes[pos: pos + n], 'big')
         pos += n
-    else: length = lb
+    else:
+        length = lb
     cipher_blob = auth_bytes[pos: pos + length]
 
     if etype == 23:
@@ -157,8 +158,8 @@ def get_active_key(auth_bytes: bytes,
                         p += n_lb
                     else:
                         c_len = lb
-                    return data[p : p + c_len]
-                except:
+                    return data[p: p + c_len]
+                except Exception:
                     return None
             p += 1
         return None
@@ -179,9 +180,6 @@ def get_active_key(auth_bytes: bytes,
 
     return active_key, seq_number
 
-import struct
-import binascii
-from typing import Optional, Tuple
 
 def get_active_key(auth_bytes: bytes,
                    service_session_key: bytes,
@@ -222,11 +220,11 @@ def get_active_key(auth_bytes: bytes,
     pos += 1
     if lb & 0x80:
         n = lb & 0x7f
-        c_length = int.from_bytes(kerberos_data[pos : pos + n], 'big')
+        c_length = int.from_bytes(kerberos_data[pos: pos + n], 'big')
         pos += n
     else:
         c_length = lb
-    cipher_blob = kerberos_data[pos : pos + c_length]
+    cipher_blob = kerberos_data[pos: pos + c_length]
 
     if etype == 23:  # RC4
         decrypted = \
@@ -257,7 +255,7 @@ def get_active_key(auth_bytes: bytes,
             else:
                 c_len = lb
             if tag == target_tag:
-                return data[p : p + c_len]
+                return data[p: p + c_len]
             p += c_len
         return None
 

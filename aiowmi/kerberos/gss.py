@@ -1,4 +1,5 @@
 import struct
+from typing import Tuple
 from Crypto.Hash import HMAC, MD5
 from Crypto.Cipher import ARC4
 from ..tools import get_random_bytes
@@ -98,7 +99,7 @@ def gss_unwrap_rc4(session_key: bytes,
 
 def gss_wrap_aes(session_key: bytes,
                  data: bytes,
-                 seq_num: int) -> tuple[bytes, bytes]:
+                 seq_num: int) -> Tuple[bytes, bytes]:
     pad = (16 - (len(data) % 16)) & 15
     pad_str = b'\xFF' * pad
 

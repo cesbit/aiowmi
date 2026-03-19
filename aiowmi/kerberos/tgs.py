@@ -1,4 +1,5 @@
 import random
+from typing import Tuple
 from Crypto.Cipher import AES
 from datetime import datetime, timezone, timedelta
 from pyasn1.codec.der import decoder, encoder
@@ -105,7 +106,7 @@ def build_tgs_req(username: str,
                   domain: str,
                   session_key: bytes,
                   ticket_bytes: bytes,
-                  target_service: tuple[str, str]):
+                  target_service: Tuple[str, str]):
     now = datetime.now(timezone.utc)
     ts_str = now.strftime("%Y%m%d%H%M%SZ").encode()
     till_ts = (now + timedelta(hours=8)).strftime("%Y%m%d%H%M%SZ").encode()
@@ -218,7 +219,7 @@ def extract_ticket(data):
 
 
 def get_service_key(resp_bytes: bytes,
-                    session_key: bytes) -> tuple[bytes, bytes, int]:
+                    session_key: bytes) -> Tuple[bytes, bytes, int]:
     raw_obj, _ = decoder.decode(resp_bytes)
     enc_part = raw_obj.getComponentByPosition(5)
 
@@ -254,7 +255,7 @@ def get_service_key(resp_bytes: bytes,
 async def get_tgs(username: str, domain: str, host: str,
                   as_rep_bytes: bytes, base_key: bytes,
                   kdc_host: str,
-                  kdc_port: int = 88) -> tuple[bytes, bytes, int]:
+                  kdc_port: int = 88) -> Tuple[bytes, bytes, int]:
     tgs_session_key = get_session_key(as_rep_bytes, base_key)
     tgs_ticket = extract_ticket(as_rep_bytes)
     tgs_req = build_tgs_req(username,
