@@ -129,23 +129,18 @@ def decrypt_kerberos_aes_cts(key: bytes, usage: int, cipher: bytes) -> bytes:
         plaintext_with_confounder = aes_ecb.decrypt(ciphertext)
     else:
         # NIST CTS Decryption
-        block_size = 16
-        n = len(ciphertext)
-        m = ((n - 1) // block_size) * block_size
+        m = ((n - block_size - 1) // block_size) * block_size
 
-        cipher_cbc = AES.new(ke, AES.MODE_CBC, b'\x00' * block_size)
         p_start = b""
-        if m > block_size:
-            p_start = cipher_cbc.decrypt(ciphertext[:m-block_size])
+        iv = b'\x00' * block_size
+        if m > 0:
+            cipher_cbc = AES.new(ke, AES.MODE_CBC, iv)
+            p_start = cipher_cbc.decrypt(ciphertext[:m])
+            iv = ciphertext[m-block_size:m]
 
-        iv = b'\x00' * block_size \
-            if m == block_size \
-            else ciphertext[m-block_size*2:m-block_size]
+        cn_minus_1 = ciphertext[m : m + block_size]
+        cn = ciphertext[m + block_size :]
 
-        cn_minus_1 = ciphertext[m-block_size:m]
-        cn = ciphertext[m:]
-
-        aes_ecb = AES.new(ke, AES.MODE_ECB)
         tmp = aes_ecb.decrypt(cn_minus_1)
 
         pn = bytes(a ^ b for a, b in zip(tmp[:len(cn)], cn))
@@ -155,6 +150,7 @@ def decrypt_kerberos_aes_cts(key: bytes, usage: int, cipher: bytes) -> bytes:
         pn_minus_1 = bytes(a ^ b
                            for a, b
                            in zip(aes_ecb.decrypt(last_block_full), iv))
+
         plaintext_with_confounder = p_start + pn_minus_1 + pn
 
     h = HMAC.new(ki, plaintext_with_confounder, SHA1)

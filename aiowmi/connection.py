@@ -217,7 +217,7 @@ class Connection:
                 assert self._protocol
             proto = self._protocol
             proto._auth_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
-            proto._context_id = 0x0001357f
+            proto._context_id = 79231
 
             if not has_keys:
                 logger.info('Start Kerberos negotiation for TGT/TGS')
@@ -381,6 +381,6 @@ class Connection:
         proto._auth_level = max(
             interface.scm_reply_info_data.authn_hint,
             m_auth_level)
-        proto._context_id = context_id
+        proto._context_id = context_id + 1
         await bind_func(IID_IWbemLevel1Login, proto)
         return proto
