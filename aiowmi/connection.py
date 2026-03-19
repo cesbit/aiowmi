@@ -253,9 +253,10 @@ class Connection:
             active_key = service_session_key
 
         if seq_number is None:
-            logger.warning("No new seq_number, seq_number 1")
-            seq_number = 1
-            proto._dcom._seq_num += 1  # TODO: I'm not sure about this
+            logger.warning(
+                "No new seq_number; "
+                f"proto._dcom._seq_num = {proto._dcom._seq_num}")
+            seq_number = proto._dcom.get_seq_num()
 
         proto._auth_type = rpc_bind_ack.auth.auth_type
         proto._auth_level = rpc_bind_ack.auth.auth_level
