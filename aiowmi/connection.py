@@ -209,7 +209,7 @@ class Connection:
     async def negotiate_kerberos(self) -> Protocol:
         if not self._domain:
             raise Exception('domain is required for Kerberos authentication')
-        has_keys = self._tgt is not None and self._tgt is not None
+        has_keys = self._tgt is not None and self._tgs is not None
         if self._protocol is None:
             await self.connect(timeout=self._timeout)
             assert self._protocol
