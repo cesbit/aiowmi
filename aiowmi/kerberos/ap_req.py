@@ -219,7 +219,7 @@ def get_active_key(auth_bytes: bytes,
             decrypt_kerberos_rc4(service_session_key, 12, cipher_blob)
         # Skip 8 bytes confounder
         active_key, seq_number = _rc4_helper(decrypted[8:])
-    elif etype in [17, 18]:  # AES
+    elif etype in (17, 18):  # AES
         decrypted = \
             decrypt_kerberos_aes_cts(service_session_key, 12, cipher_blob)
         # Skip 16 bytes confounder

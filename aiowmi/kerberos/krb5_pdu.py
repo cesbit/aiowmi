@@ -20,7 +20,7 @@ def get_neg_token(service_session_key: bytes, seq_number: int, etype: int):
     inner_seq = b'\x30' + asn1_len(enc_ap_rep_body) + enc_ap_rep_body
     plaintext = b'\x7b' + asn1_len(inner_seq) + inner_seq
 
-    if etype in [17, 18]:  # AES-128 / AES-256
+    if etype in (17, 18):  # AES-128 / AES-256
         enc_data = encrypt_kerberos_aes_cts(service_session_key, 12, plaintext)
         current_etype = etype
     else:   # RC4 (23)
