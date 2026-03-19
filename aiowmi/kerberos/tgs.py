@@ -171,7 +171,7 @@ def build_tgs_req(username: str,
         asn1_tag(3, asn1_seq(sname_inner)) +             # sname
         asn1_tag(5, asn1_gt(till_ts)) +                  # Till
         asn1_tag(7, asn1_int(nonce)) +                   # Nonce
-        asn1_tag(8, asn1_seq(etypes))                # Etypes
+        asn1_tag(8, asn1_seq(etypes))                    # Etypes
     )
     req_body_field = asn1_tag(4, asn1_seq(req_body_content))
 
@@ -243,14 +243,10 @@ def get_service_key(resp_bytes: bytes,
     ticket = raw_obj.getComponentByPosition(4)
     ticket_bytes = encoder.encode(ticket)
 
-    WRAPPERS = [0xa3, 0xa4, 0xa5]
-
-    if ticket_bytes[0] in WRAPPERS:
-        try:
-            ticket_start = ticket_bytes.index(b'\x61', 0, 10)
-            ticket_bytes = ticket_bytes[ticket_start:]
-        except ValueError:
-            pass
+    if ticket_bytes[0] != 0x61:
+        first_len_byte = ticket_bytes[1]
+        num_len_bytes = first_len_byte & 0x7f if first_len_byte & 0x80 else 0
+        ticket_bytes = ticket_bytes[2 + num_len_bytes:]
 
     return ticket_bytes, service_session_key, service_etype
 

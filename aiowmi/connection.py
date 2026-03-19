@@ -231,6 +231,7 @@ class Connection:
                                                bind_func=self._bind_kerberos,
                                                m_auth_level=proto._auth_level)
             except (AccessDenied, NoNewActiveKey, BindNak) as e:
+                raise
                 msg = str(e) or type(e).__name__
                 if attempt <= max_retry:
                     logger.info(f'{msg} (attempt {attempt}/{max_retry})')
@@ -268,6 +269,7 @@ class Connection:
             raise NoNewActiveKey()
         proto._auth_type = rpc_bind_ack.auth.auth_type
         proto._auth_level = rpc_bind_ack.auth.auth_level
+        proto._dcom._seq_num = 0
 
         neg_token = get_neg_token(service_session_key, seq_number, etype)
         alter_context_pkg = build_alter_context(

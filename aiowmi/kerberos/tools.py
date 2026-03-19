@@ -16,39 +16,35 @@ from ..tools import get_random_bytes
 
 def _nfold(ba, nbytes):
     def rotate_right(ba, nbits):
-        ba = bytearray(ba)
         n = len(ba)
         nbits %= (n * 8)
-        # Rotate bytes
-        for _ in range(nbits // 8):
-            ba = bytearray([ba[-1]]) + ba[:-1]
-        # Rotate remaining bits
-        nbits %= 8
-        if nbits > 0:
-            last_bit = 0
-            for i in range(len(ba)):
-                new_last_bit = ba[i] & ((1 << nbits) - 1)
-                ba[i] = (ba[i] >> nbits) | (last_bit << (8 - nbits))
-                last_bit = new_last_bit
-            ba[0] |= (last_bit << (8 - nbits))
-        return ba
+        if nbits == 0:
+            return bytearray(ba)
+
+        val = int.from_bytes(ba, 'big')
+
+        mask = (1 << (n * 8)) - 1
+        rotated = ((val >> nbits) | (val << (n * 8 - nbits))) & mask
+
+        return bytearray(rotated.to_bytes(n, 'big'))
 
     def add_ones_complement(ba1, ba2):
         n = len(ba1)
-        res = [0] * n
+        res = bytearray(n)
         carry = 0
         for i in range(n-1, -1, -1):
             s = ba1[i] + ba2[i] + carry
             res[i] = s & 0xff
             carry = s >> 8
 
-        pos = n - 1
-        while carry and pos >= 0:
-            s = res[pos] + carry
-            res[pos] = s & 0xff
-            carry = s >> 8
-            pos -= 1
-        return bytearray(res)
+        while carry:
+            for i in range(n-1, -1, -1):
+                s = res[i] + carry
+                res[i] = s & 0xff
+                carry = s >> 8
+                if not carry:
+                    break
+        return res
 
     slen = len(ba)
 
@@ -58,7 +54,7 @@ def _nfold(ba, nbytes):
     lcm_val = lcm(slen, nbytes)
     big_str = bytearray()
     curr = bytearray(ba)
-    for i in range(lcm_val // slen):
+    for _ in range(lcm_val // slen):
         big_str += curr
         curr = rotate_right(curr, 13)
 
