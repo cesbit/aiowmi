@@ -4,7 +4,6 @@ from Crypto.Cipher import AES
 from Crypto.Hash import SHA1
 from .as_req import build_as_req, build_full_as_req
 from .kdc import send_kerberos_packet
-from .asn1 import get_asn1_len
 from .tools import parse_krb_error, peel_tag
 
 
