@@ -1,7 +1,7 @@
 from typing import Optional, Tuple
 from datetime import datetime, timezone
 from .asn1 import asn1_len, asn1_tag, asn1_gt, asn1_int, asn1_ostr
-from .tools import encrypt_kerberos_rc4, decrypt_kerberos_rc4,peel_tag
+from .tools import encrypt_kerberos_rc4, decrypt_kerberos_rc4, peel_tag
 from .tools import decrypt_kerberos_aes_cts, encrypt_kerberos_aes_cts
 from .const import OID_SPNEGO, OID_IETF_KRB5, OID_MS_KRB5
 from ..exceptions import NoNewActiveKey
@@ -130,12 +130,10 @@ def _rc4_helper(asn1_data: bytes) -> Tuple[Optional[bytes], Optional[int]]:
         if asn1_data[i] == 0xa3:
             content = peel_tag(asn1_data[i:], 0xa3)
             if content:
-                # Zoek de Integer tag (0x02) binnen de container
                 inner = peel_tag(content, 0x02)
                 if inner:
                     seq_number = int.from_bytes(inner, 'big')
                     break
-                # Fallback: als 0x02 ontbreekt, neem de rauwe content (max 8 bytes voor een Long)
                 elif 0 < len(content) <= 8:
                     seq_number = int.from_bytes(content, 'big')
                     break
