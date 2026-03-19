@@ -111,78 +111,6 @@ def build_ap_req(username: str,
 
 def get_active_key(auth_bytes: bytes,
                    service_session_key: bytes,
-                   etype: int) -> Tuple[Optional[bytes], int]:
-    active_key, seq_number = None, 0
-
-    etype_idx = auth_bytes.find(bytes([0x02, 0x01, etype]))
-    if etype_idx == -1:
-        return None, 0
-    idx_04 = auth_bytes.find(b'\x04', etype_idx)
-    if idx_04 == -1:
-        return None, 0
-
-    pos = idx_04 + 1
-    lb = auth_bytes[pos]
-    pos += 1
-    if lb & 0x80:
-        n = lb & 0x7f
-        length = int.from_bytes(auth_bytes[pos: pos + n], 'big')
-        pos += n
-    else:
-        length = lb
-    cipher_blob = auth_bytes[pos: pos + length]
-
-    if etype == 23:
-        decrypted = \
-            decrypt_kerberos_rc4(service_session_key, 12, cipher_blob)
-        asn1_data = decrypted[8:]
-    elif etype in [17, 18]:
-        decrypted = \
-            decrypt_kerberos_aes_cts(service_session_key, 12, cipher_blob)
-        asn1_data = decrypted[16:]
-    else:
-        raise ValueError(f"Invalid E-type: {etype}")
-
-    def get_tag_data(data: bytes, target_tag: int) -> Optional[bytes]:
-        p = 0
-        while p < len(data):
-            tag = data[p]
-            if tag == target_tag:
-                try:
-                    p += 1
-                    lb = data[p]
-                    p += 1
-                    if lb & 0x80:
-                        n_lb = lb & 0x7f
-                        c_len = int.from_bytes(data[p: p+n_lb], 'big')
-                        p += n_lb
-                    else:
-                        c_len = lb
-                    return data[p: p + c_len]
-                except Exception:
-                    return None
-            p += 1
-        return None
-
-    subkey_cont = get_tag_data(asn1_data, 0xa2)
-    if subkey_cont:
-        key_seq = get_tag_data(subkey_cont, 0x30)
-        if key_seq:
-            key_val_wrapper = get_tag_data(key_seq, 0xa1)
-            if key_val_wrapper:
-                active_key = get_tag_data(key_val_wrapper, 0x04)
-
-    seq_cont = get_tag_data(asn1_data, 0xa3)
-    if seq_cont:
-        seq_bytes = get_tag_data(seq_cont, 0x02)
-        if seq_bytes:
-            seq_number = int.from_bytes(seq_bytes, 'big')
-
-    return active_key, seq_number
-
-
-def get_active_key(auth_bytes: bytes,
-                   service_session_key: bytes,
                    etype: int) -> Tuple[Optional[bytes], Optional[int]]:
     active_key, seq_number = None, None
     kerberos_data = auth_bytes
@@ -237,7 +165,7 @@ def get_active_key(auth_bytes: bytes,
     else:
         raise ValueError(f"Invalid E-type: {etype}")
 
-    def peel_tag(data: bytes, target_tag: int):
+    def peel_tag(data: bytes, target_tag: int) -> Optional[bytes]:
         if not data:
             return None
         p = 0
@@ -265,18 +193,19 @@ def get_active_key(auth_bytes: bytes,
         if current and current.startswith(b'\x30'):
             current = peel_tag(current, 0x30)
 
-    subkey_cont = peel_tag(current, 0xa2)
-    if subkey_cont:
-        k_seq = peel_tag(subkey_cont, 0x30)
-        if k_seq:
-            k_val_wrap = peel_tag(k_seq, 0xa1)
-            if k_val_wrap:
-                active_key = peel_tag(k_val_wrap, 0x04)
+    if current:
+        subkey_cont = peel_tag(current, 0xa2)
+        if subkey_cont:
+            k_seq = peel_tag(subkey_cont, 0x30)
+            if k_seq:
+                k_val_wrap = peel_tag(k_seq, 0xa1)
+                if k_val_wrap:
+                    active_key = peel_tag(k_val_wrap, 0x04)
 
-    seq_cont = peel_tag(current, 0xa3)
-    if seq_cont:
-        inner_seq = peel_tag(seq_cont, 0x02)
-        if inner_seq:
-            seq_number = int.from_bytes(inner_seq, 'big')
+        seq_cont = peel_tag(current, 0xa3)
+        if seq_cont:
+            inner_seq = peel_tag(seq_cont, 0x02)
+            if inner_seq:
+                seq_number = int.from_bytes(inner_seq, 'big')
 
     return active_key, seq_number
