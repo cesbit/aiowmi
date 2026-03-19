@@ -1,7 +1,7 @@
 import asyncio
 from typing import Optional, Callable
 from Crypto.Cipher import ARC4
-from .exceptions import AccessDenied, NoNewActiveKey, BindNak
+from .exceptions import AccessDenied, BindNak
 from .kerberos.ap_req import build_ap_req, wrap_gss_kerberos, get_active_key
 from .kerberos.cache import KerberosCache
 from .kerberos.krb5_pdu import get_neg_token, build_alter_context
@@ -206,45 +206,28 @@ class Connection:
 
         self._kerberos_cache.write(self._tgt, self._tgs, logger)
 
-    async def negotiate_kerberos(self, max_retry: int = 1) -> Protocol:
+    async def negotiate_kerberos(self) -> Protocol:
         if not self._domain:
             raise Exception('domain is required for Kerberos authentication')
-        attempt = 1
         has_keys = self._tgt is not None and self._tgt is not None
-        while True:
-            if self._protocol is None:
-                await self.connect(timeout=self._timeout)
-                assert self._protocol
-            proto = self._protocol
-            proto._auth_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
-            proto._context_id = 79231
+        if self._protocol is None:
+            await self.connect(timeout=self._timeout)
+            assert self._protocol
+        proto = self._protocol
+        proto._auth_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
+        proto._context_id = 79231
 
-            if not has_keys:
-                logger.info('Start Kerberos negotiation for TGT/TGS')
-                await self._negotiate_kerberos()
-                has_keys = True
-            else:
-                logger.info('Using Kerberos TGT/TGS from cache')
-            try:
-                await self._bind_kerberos(IID_IRemoteSCMActivator, proto)
-                iface = await self._if_binding(proto,
-                                               bind_func=self._bind_kerberos,
-                                               m_auth_level=proto._auth_level)
-            except (AccessDenied, NoNewActiveKey, BindNak) as e:
-                raise
-                msg = str(e) or type(e).__name__
-                if attempt <= max_retry:
-                    logger.info(f'{msg} (attempt {attempt}/{max_retry})')
-                    if attempt % 2 == 0:
-                        has_keys = False  # attemp to get new keys
-                    self.close()
-                    await asyncio.sleep(0.1 * attempt)
-                    attempt += 1
-                    continue
-                raise
-            else:
-                break
+        if not has_keys:
+            logger.info('Start Kerberos negotiation for TGT/TGS')
+            await self._negotiate_kerberos()
+            has_keys = True
+        else:
+            logger.info('Using Kerberos TGT/TGS from cache')
 
+        await self._bind_kerberos(IID_IRemoteSCMActivator, proto)
+        iface = await self._if_binding(proto,
+                                        bind_func=self._bind_kerberos,
+                                        m_auth_level=proto._auth_level)
         return iface
 
     async def _bind_kerberos(self, iid: bytes, proto: Protocol):
