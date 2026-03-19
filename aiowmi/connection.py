@@ -226,8 +226,8 @@ class Connection:
 
         await self._bind_kerberos(IID_IRemoteSCMActivator, proto)
         iface = await self._if_binding(proto,
-                                        bind_func=self._bind_kerberos,
-                                        m_auth_level=proto._auth_level)
+                                       bind_func=self._bind_kerberos,
+                                       m_auth_level=proto._auth_level)
         return iface
 
     async def _bind_kerberos(self, iid: bytes, proto: Protocol):
@@ -249,11 +249,13 @@ class Connection:
                                                 service_session_key,
                                                 etype)
         if active_key is None:
+            logger.warning("No new active key, use existing service key")
             active_key = service_session_key
 
         if seq_number is None:
+            logger.warning("No new seq_number, seq_number 1")
             seq_number = 1
-            proto._dcom._seq_num += 1
+            proto._dcom._seq_num += 1  # TODO: I'm not sure about this
 
         proto._auth_type = rpc_bind_ack.auth.auth_type
         proto._auth_level = rpc_bind_ack.auth.auth_level

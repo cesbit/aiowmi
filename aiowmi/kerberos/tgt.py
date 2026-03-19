@@ -5,7 +5,7 @@ from Crypto.Hash import SHA1
 from .as_req import build_as_req, build_full_as_req
 from .kdc import send_kerberos_packet
 from .asn1 import get_asn1_len
-from .tools import parse_krb_error
+from .tools import parse_krb_error, peel_tag
 
 
 def extract_salt_and_etype(error_data: bytes) -> Tuple[str, int]:
@@ -14,31 +14,51 @@ def extract_salt_and_etype(error_data: bytes) -> Tuple[str, int]:
 
     e_data_idx = error_data.find(b'\xac')
     if e_data_idx == -1:
-        raise ValueError("e-data (Tag 12) not found")
+        raise ValueError("e-data (Tag 12) not found in KRB-ERROR")
 
-    salt_tag_idx = error_data.find(b'\x1b', e_data_idx)
+    etype_18_marker = b'\x02\x01\x12'
+    marker_idx = error_data.find(etype_18_marker, e_data_idx)
+
+    etype = 18
+    if marker_idx == -1:
+        etype_17_marker = b'\x02\x01\x11'
+        marker_idx = error_data.find(etype_17_marker, e_data_idx)
+        etype = 17
+
+    if marker_idx == -1:
+        raise ValueError("No AES (17/18) etype found in e-data")
+
+    salt_tag_idx = error_data.find(b'\xa1', marker_idx)
     if salt_tag_idx == -1:
-        # Default to no salt/empty string if not found
-        salt = ""
+        raise ValueError(f"Salt tag (0xa1) not found for etype {etype}")
+
+    salt_start_idx = -1
+    for tag in [b'\x1b', b'\x04', b'\x1d']:
+        tag_pos = error_data.find(tag, salt_tag_idx, salt_tag_idx + 15)
+        if tag_pos != -1:
+            salt_start_idx = tag_pos
+            break
+
+    if salt_start_idx == -1:
+        raise ValueError(
+            "Could not find string tag (1b/04) within salt container")
+
+    pos = salt_start_idx + 1
+    length_byte = error_data[pos]
+    pos += 1
+
+    if length_byte & 0x80:
+        n_bytes = length_byte & 0x7f
+        salt_len = int.from_bytes(error_data[pos: pos + n_bytes], 'big')
+        pos += n_bytes
     else:
-        salt_len, salt_len_size = get_asn1_len(error_data, salt_tag_idx + 1)
-        salt_start = salt_tag_idx + 1 + salt_len_size
-        salt = error_data[salt_start: salt_start + salt_len].decode('utf-8')
+        salt_len = length_byte
 
-    etype = 18  # Default to AES256 if we can't find it
-    etype_search_start = error_data.find(
-        b'\xa0',
-        e_data_idx,
-        salt_tag_idx if salt_tag_idx != -1 else None)
+    salt_bytes = error_data[pos: pos + salt_len]
+    if not salt_bytes:
+        raise ValueError("Extracted salt is empty")
 
-    if etype_search_start != -1:
-        # The etype is an integer inside context tag 0xa0
-        val_idx = error_data.find(b'\x02', etype_search_start)
-        if val_idx != -1:
-            e_len = error_data[val_idx + 1]
-            offset = val_idx + 2
-            etype = int.from_bytes(error_data[offset: offset + e_len], 'big')
-
+    salt = salt_bytes.decode('utf-8', errors='replace')
     return salt, etype
 
 

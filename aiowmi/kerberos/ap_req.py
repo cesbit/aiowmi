@@ -1,7 +1,7 @@
 from typing import Optional, Tuple
 from datetime import datetime, timezone
 from .asn1 import asn1_len, asn1_tag, asn1_gt, asn1_int, asn1_ostr
-from .tools import encrypt_kerberos_rc4, decrypt_kerberos_rc4
+from .tools import encrypt_kerberos_rc4, decrypt_kerberos_rc4, peel_tag
 from .tools import decrypt_kerberos_aes_cts, encrypt_kerberos_aes_cts
 from .const import OID_SPNEGO, OID_IETF_KRB5, OID_MS_KRB5
 from ..exceptions import NoNewActiveKey
@@ -164,28 +164,6 @@ def get_active_key(auth_bytes: bytes,
         asn1_data = decrypted[16:]  # Skip 16 bytes confounder
     else:
         raise ValueError(f"Invalid E-type: {etype}")
-
-    def peel_tag(data: bytes, target_tag: int) -> Optional[bytes]:
-        if not data:
-            return None
-        p = 0
-        while p < len(data):
-            tag = data[p]
-            p += 1
-            if p >= len(data):
-                break
-            lb = data[p]
-            p += 1
-            if lb & 0x80:
-                n_lb = lb & 0x7f
-                c_len = int.from_bytes(data[p: p+n_lb], 'big')
-                p += n_lb
-            else:
-                c_len = lb
-            if tag == target_tag:
-                return data[p: p + c_len]
-            p += c_len
-        return None
 
     current = asn1_data
     if asn1_data.startswith(b'\x7b'):
