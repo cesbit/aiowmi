@@ -7,20 +7,11 @@ from .const import OID_SPNEGO, OID_IETF_KRB5, OID_MS_KRB5
 from ..exceptions import NoNewActiveKey
 
 
-def wrap_gss_kerberos(ap_req_bytes: bytes, etype: int):
-    if etype == 18:
-        outer_oid = OID_IETF_KRB5
-        inner_oid = OID_MS_KRB5
-    elif etype == 17:
-        outer_oid = OID_IETF_KRB5
-        inner_oid = OID_MS_KRB5
-    elif etype == 23:
-        outer_oid = OID_MS_KRB5
-        inner_oid = OID_MS_KRB5
-    else:
-        raise ValueError(f"Invalid E-type: {etype}")
+def wrap_gss_kerberos(ap_req_bytes: bytes):
+    outer_oid = OID_IETF_KRB5
+    inner_oid = OID_MS_KRB5
 
-    mech_types_inner = b'\x30\x0b' + outer_oid
+    mech_types_inner = b'\x30' + asn1_len(outer_oid) + outer_oid
     mech_types = asn1_tag(0, mech_types_inner)
 
     inner_gss_content = inner_oid + b'\x01\x00' + ap_req_bytes
@@ -32,6 +23,7 @@ def wrap_gss_kerberos(ap_req_bytes: bytes, etype: int):
     neg_init = asn1_tag(0, b'\x30' + asn1_len(neg_body) + neg_body)
 
     final_payload = OID_SPNEGO + neg_init
+
     return b'\x60' + asn1_len(final_payload) + final_payload
 
 

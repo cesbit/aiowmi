@@ -237,7 +237,7 @@ class Connection:
                               ticket,
                               service_session_key,
                               etype)
-        auth_value = wrap_gss_kerberos(ap_req, etype)
+        auth_value = wrap_gss_kerberos(ap_req)
         bind_pkg = proto._dcom.get_bind_kerberos_pkg(
             iid,
             auth_value,
