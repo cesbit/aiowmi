@@ -1,4 +1,5 @@
 import random
+from typing import Tuple
 from Crypto.Cipher import AES
 from datetime import datetime, timezone, timedelta
 from pyasn1.codec.der import decoder, encoder
@@ -105,7 +106,7 @@ def build_tgs_req(username: str,
                   domain: str,
                   session_key: bytes,
                   ticket_bytes: bytes,
-                  target_service: tuple[str, str]):
+                  target_service: Tuple[str, str]):
     now = datetime.now(timezone.utc)
     ts_str = now.strftime("%Y%m%d%H%M%SZ").encode()
     till_ts = (now + timedelta(hours=8)).strftime("%Y%m%d%H%M%SZ").encode()
@@ -160,8 +161,8 @@ def build_tgs_req(username: str,
         ))
     )
 
-    # Etype list: RC4, AES128, DES, AES256
-    etype_list = asn1_int(23) + asn1_int(16) + asn1_int(3) + asn1_int(18)
+    # Etype list: RC4 (23), AES128 (17), AES256 (18)
+    etypes = asn1_int(23) + asn1_int(17) + asn1_int(18)
     nonce = random.getrandbits(31)
 
     req_body_content = (
@@ -170,7 +171,7 @@ def build_tgs_req(username: str,
         asn1_tag(3, asn1_seq(sname_inner)) +             # sname
         asn1_tag(5, asn1_gt(till_ts)) +                  # Till
         asn1_tag(7, asn1_int(nonce)) +                   # Nonce
-        asn1_tag(8, asn1_seq(etype_list))                # Etypes
+        asn1_tag(8, asn1_seq(etypes))                    # Etypes
     )
     req_body_field = asn1_tag(4, asn1_seq(req_body_content))
 
@@ -217,7 +218,7 @@ def extract_ticket(data):
 
 
 def get_service_key(resp_bytes: bytes,
-                    session_key: bytes) -> tuple[bytes, bytes]:
+                    session_key: bytes) -> Tuple[bytes, bytes, int]:
     raw_obj, _ = decoder.decode(resp_bytes)
     enc_part = raw_obj.getComponentByPosition(5)
 
@@ -236,26 +237,24 @@ def get_service_key(resp_bytes: bytes,
     inner_obj, _ = decoder.decode(payload)
 
     key_sequence = inner_obj.getComponentByPosition(0)
+    service_etype = int(key_sequence.getComponentByPosition(0))
     service_session_key = bytes(key_sequence.getComponentByPosition(1))
 
     ticket = raw_obj.getComponentByPosition(4)
     ticket_bytes = encoder.encode(ticket)
 
-    WRAPPERS = [0xa3, 0xa4, 0xa5]
+    if ticket_bytes[0] != 0x61:
+        first_len_byte = ticket_bytes[1]
+        num_len_bytes = first_len_byte & 0x7f if first_len_byte & 0x80 else 0
+        ticket_bytes = ticket_bytes[2 + num_len_bytes:]
 
-    if ticket_bytes[0] in WRAPPERS:
-        try:
-            ticket_start = ticket_bytes.index(b'\x61', 0, 10)
-            ticket_bytes = ticket_bytes[ticket_start:]
-        except ValueError:
-            pass
-
-    return ticket_bytes, service_session_key
+    return ticket_bytes, service_session_key, service_etype
 
 
 async def get_tgs(username: str, domain: str, host: str,
                   as_rep_bytes: bytes, base_key: bytes,
-                  kdc_host: str, kdc_port: int = 88) -> tuple[bytes, bytes]:
+                  kdc_host: str,
+                  kdc_port: int = 88) -> Tuple[bytes, bytes, int]:
     tgs_session_key = get_session_key(as_rep_bytes, base_key)
     tgs_ticket = extract_ticket(as_rep_bytes)
     tgs_req = build_tgs_req(username,
@@ -265,5 +264,5 @@ async def get_tgs(username: str, domain: str, host: str,
                             ("host", host))
     as_res_bytes = await send_kerberos_packet(tgs_req, kdc_host, kdc_port)
     parse_krb_error(as_res_bytes)
-    ticket, service_key = get_service_key(as_res_bytes, tgs_session_key)
-    return ticket, service_key
+    ticket, service_key, etype = get_service_key(as_res_bytes, tgs_session_key)
+    return ticket, service_key, etype

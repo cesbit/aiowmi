@@ -1,5 +1,5 @@
 import struct
-from typing import Union
+from typing import Union, Tuple
 
 
 def asn1_tag(tag_num: int, content: bytes) -> bytes:
@@ -46,7 +46,7 @@ def asn1_ostr(val: bytes) -> bytes:
     return b'\x04' + asn1_len(val) + val
 
 
-def get_asn1_len(data: bytes, pos: int) -> tuple[int, int]:
+def get_asn1_len(data: bytes, pos: int) -> Tuple[int, int]:
     """Read ASN.1 lengte from data."""
     b = data[pos]
     if b < 128:
