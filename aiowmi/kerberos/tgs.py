@@ -106,10 +106,11 @@ def build_tgs_req(username: str,
                   domain: str,
                   session_key: bytes,
                   ticket_bytes: bytes,
-                  target_service: Tuple[str, str]):
+                  target_service: Tuple[str, str]) -> Tuple[bytes, datetime]:
     now = datetime.now(timezone.utc)
+    till = now + timedelta(hours=8)
     ts_str = now.strftime("%Y%m%d%H%M%SZ").encode()
-    till_ts = (now + timedelta(hours=8)).strftime("%Y%m%d%H%M%SZ").encode()
+    till_ts = till.strftime("%Y%m%d%H%M%SZ").encode()
 
     cname_content = (
         asn1_tag(0, asn1_int(1)) +
@@ -185,7 +186,7 @@ def build_tgs_req(username: str,
 
     # Application Tag 12 (0x6c) -> TGS-REQ
     inner_seq = asn1_seq(final_content)
-    return b'\x6c' + asn1_len(inner_seq) + inner_seq
+    return b'\x6c' + asn1_len(inner_seq) + inner_seq, till
 
 
 def extract_ticket(data):
@@ -254,10 +255,10 @@ def get_service_key(resp_bytes: bytes,
 async def get_tgs(username: str, domain: str, host: str,
                   as_rep_bytes: bytes, base_key: bytes,
                   kdc_host: str,
-                  kdc_port: int = 88) -> Tuple[bytes, bytes, int]:
+                  kdc_port: int = 88) -> Tuple[bytes, bytes, int, float]:
     tgs_session_key = get_session_key(as_rep_bytes, base_key)
     tgs_ticket = extract_ticket(as_rep_bytes)
-    tgs_req = build_tgs_req(username,
+    tgs_req, till = build_tgs_req(username,
                             domain,
                             tgs_session_key,
                             tgs_ticket,
@@ -265,4 +266,4 @@ async def get_tgs(username: str, domain: str, host: str,
     as_res_bytes = await send_kerberos_packet(tgs_req, kdc_host, kdc_port)
     parse_krb_error(as_res_bytes)
     ticket, service_key, etype = get_service_key(as_res_bytes, tgs_session_key)
-    return ticket, service_key, etype
+    return ticket, service_key, etype, till.timestamp()

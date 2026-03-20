@@ -1,4 +1,5 @@
 import asyncio
+import time
 from typing import Optional, Callable
 from Crypto.Cipher import ARC4
 from .exceptions import AccessDenied, BindNak
@@ -206,23 +207,29 @@ class Connection:
 
         self._kerberos_cache.write(self._tgt, self._tgs, logger)
 
+    def has_valid_keys(self, offset: float = 90.0) -> bool:
+        if self._tgt is None or self._tgs is None:
+            return False
+        till = self._tgs[3]  # this is the time the ticket expires;
+                             # we use a little offset to be safe
+        return time.time() <= (till - offset)
+
     async def negotiate_kerberos(self) -> Protocol:
         if not self._domain:
             raise Exception('domain is required for Kerberos authentication')
-        has_keys = self._tgt is not None and self._tgs is not None
         if self._protocol is None:
             await self.connect(timeout=self._timeout)
             assert self._protocol
+
         proto = self._protocol
         proto._auth_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
         proto._context_id = 79231
 
-        if not has_keys:
+        if self.has_valid_keys():
+            logger.info('Using Kerberos TGT/TGS from cache')
+        else:
             logger.info('Start Kerberos negotiation for TGT/TGS')
             await self._negotiate_kerberos()
-            has_keys = True
-        else:
-            logger.info('Using Kerberos TGT/TGS from cache')
 
         await self._bind_kerberos(IID_IRemoteSCMActivator, proto)
         iface = await self._if_binding(proto,
@@ -231,7 +238,7 @@ class Connection:
         return iface
 
     async def _bind_kerberos(self, iid: bytes, proto: Protocol):
-        ticket, service_session_key, etype = self._tgs
+        ticket, service_session_key, etype, _ = self._tgs
         ap_req = build_ap_req(self._username,
                               self._domain,
                               ticket,
