@@ -259,10 +259,10 @@ async def get_tgs(username: str, domain: str, host: str,
     tgs_session_key = get_session_key(as_rep_bytes, base_key)
     tgs_ticket = extract_ticket(as_rep_bytes)
     tgs_req, till = build_tgs_req(username,
-                            domain,
-                            tgs_session_key,
-                            tgs_ticket,
-                            ("host", host))
+                                  domain,
+                                  tgs_session_key,
+                                  tgs_ticket,
+                                  ("host", host))
     as_res_bytes = await send_kerberos_packet(tgs_req, kdc_host, kdc_port)
     parse_krb_error(as_res_bytes)
     ticket, service_key, etype = get_service_key(as_res_bytes, tgs_session_key)

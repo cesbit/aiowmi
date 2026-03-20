@@ -211,8 +211,7 @@ class Connection:
         if self._tgt is None or self._tgs is None:
             return False
         till = self._tgs[3]  # this is the time the ticket expires;
-                             # we use a little offset to be safe
-        return time.time() <= (till - offset)
+        return time.time() <= (till - offset)  # we use offset to be safe
 
     async def negotiate_kerberos(self) -> Protocol:
         if not self._domain:
