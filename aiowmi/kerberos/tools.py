@@ -4,7 +4,7 @@ import hashlib
 import hmac
 import math
 import struct
-from typing import Optional
+from typing import Optional, Tuple
 from functools import reduce
 from pyasn1.codec.der import decoder, encoder
 from Crypto.Cipher import AES
@@ -354,27 +354,3 @@ def parse_krb_error(data: bytes):
     raise KerberosErr(
         KRB_ERRORS.get(code, f"Unknown Kerberos Error: {code}")
     )
-
-
-def peel_tag(data: bytes, target_tag: int) -> Optional[bytes]:
-    if not data:
-        return None
-    p = 0
-    while p < len(data):
-        tag = data[p]
-        p += 1
-        if p >= len(data):
-            break
-        lb = data[p]
-        p += 1
-        if lb & 0x80:
-            n_lb = lb & 0x7f
-            c_len = int.from_bytes(data[p: p+n_lb], 'big')
-            p += n_lb
-        else:
-            c_len = lb
-        if tag == target_tag:
-            return data[p: p + c_len]
-        p += c_len
-
-    return None

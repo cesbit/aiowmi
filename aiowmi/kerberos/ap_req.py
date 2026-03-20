@@ -1,7 +1,7 @@
 from typing import Optional, Tuple
 from datetime import datetime, timezone
 from .asn1 import asn1_len, asn1_tag, asn1_gt, asn1_int, asn1_ostr
-from .tools import encrypt_kerberos_rc4, decrypt_kerberos_rc4, peel_tag
+from .tools import encrypt_kerberos_rc4, decrypt_kerberos_rc4
 from .tools import decrypt_kerberos_aes_cts, encrypt_kerberos_aes_cts
 from .const import OID_SPNEGO, OID_IETF_KRB5, OID_MS_KRB5
 from ..exceptions import NoNewActiveKey
@@ -101,62 +101,56 @@ def build_ap_req(username: str,
     return b'\x6e' + asn1_len(inner_pdu) + inner_pdu
 
 
-def _rc4_helper(asn1_data: bytes) -> Tuple[Optional[bytes], Optional[int]]:
+def peel_tag(data: bytes,
+             pos: int) -> Tuple[Optional[int], Optional[bytes], int]:
+    if pos >= len(data):
+        return None, None, pos
+    tag = data[pos]
+    p = pos + 1
+    if p >= len(data):
+        return None, None, p
+    lb = data[p]
+    p += 1
+    if lb & 0x80:
+        n = lb & 0x7f
+        length = int.from_bytes(data[p: p + n], 'big')
+        p += n
+    else:
+        length = lb
+    return tag, data[p: p + length], p + length
+
+
+def _get_active_key(asn1_data: bytes) -> Tuple[Optional[bytes], Optional[int]]:
     active_key = None
     seq_number = None
+    n = len(asn1_data)
+    p = 0
+    while p < n and asn1_data[p] < 0xa0:
+        p += 1
 
-    for i in range(len(asn1_data) - 10):
-        if asn1_data[i] == 0xa2:
-            content = peel_tag(asn1_data[i:], 0xa2)
-            if content:
-                val_idx = content.find(b'\xa1')
-                if val_idx != -1:
-                    val_wrap = peel_tag(content[val_idx:], 0xa1)
-                    if val_wrap:
-                        res_key = peel_tag(val_wrap, 0x04)
-                        if res_key and len(res_key) == 16:
-                            active_key = res_key
-                            break
+    while p < n:
+        tag, content, next_p = peel_tag(asn1_data, p)
+        if tag is None:
+            break
 
-    for i in range(len(asn1_data) - 2):
-        if asn1_data[i] == 0xa3:
-            content = peel_tag(asn1_data[i:], 0xa3)
-            if content:
-                inner = peel_tag(content, 0x02)
-                if inner:
-                    seq_number = int.from_bytes(inner, 'big')
-                    break
-                elif 0 < len(content) <= 8:
-                    seq_number = int.from_bytes(content, 'big')
-                    break
+        if tag == 0xa2:
+            if content.startswith(b'\x30'):
+                _, c_30, _ = peel_tag(content, 0)
+                kp = 0
+                while kp < len(c_30):
+                    t_k, c_k, next_k = peel_tag(c_30, kp)
+                    if t_k == 0xa1:
+                        _, active_key, _ = peel_tag(c_k, 0)
+                    kp = next_k
 
-    return active_key, seq_number
+        elif tag == 0xa3:
+            if content.startswith(b'\x02'):
+                _, val, _ = peel_tag(content, 0)
+                seq_number = int.from_bytes(val, 'big')
+            else:
+                seq_number = int.from_bytes(content, 'big')
 
-
-def _aes_helper(asn1_data: bytes) -> Tuple[Optional[bytes], Optional[int]]:
-    active_key = None
-    seq_number = None
-
-    current = asn1_data
-    if asn1_data.startswith(b'\x7b'):
-        current = peel_tag(asn1_data, 0x7b)
-        if current and current.startswith(b'\x30'):
-            current = peel_tag(current, 0x30)
-
-    if current:
-        subkey_cont = peel_tag(current, 0xa2)
-        if subkey_cont:
-            k_seq = peel_tag(subkey_cont, 0x30)
-            if k_seq:
-                k_val_wrap = peel_tag(k_seq, 0xa1)
-                if k_val_wrap:
-                    active_key = peel_tag(k_val_wrap, 0x04)
-
-        seq_cont = peel_tag(current, 0xa3)
-        if seq_cont:
-            inner_seq = peel_tag(seq_cont, 0x02)
-            if inner_seq:
-                seq_number = int.from_bytes(inner_seq, 'big')
+        p = next_p
 
     return active_key, seq_number
 
@@ -207,16 +201,15 @@ def get_active_key(auth_bytes: bytes,
     cipher_blob = kerberos_data[pos: pos + c_length]
 
     if etype == 23:  # RC4
-        decrypted = \
-            decrypt_kerberos_rc4(service_session_key, 12, cipher_blob)
-        # Skip 8 bytes confounder
-        active_key, seq_number = _rc4_helper(decrypted[8:])
+        cipher = decrypt_kerberos_rc4
+        offset = 8  # Skip 8 bytes confounder
     elif etype in (17, 18):  # AES
-        decrypted = \
-            decrypt_kerberos_aes_cts(service_session_key, 12, cipher_blob)
-        # Skip 16 bytes confounder
-        active_key, seq_number = _aes_helper(decrypted[16:])
+        cipher = decrypt_kerberos_aes_cts
+        offset = 16  # Skip 16 bytes confounder
     else:
         raise ValueError(f"Invalid E-type: {etype}")
 
+    decrypted = cipher(service_session_key, 12, cipher_blob)
+    asn1_data = decrypted[offset:]
+    active_key, seq_number = _get_active_key(asn1_data)
     return active_key, seq_number

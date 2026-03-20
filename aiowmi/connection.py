@@ -276,6 +276,7 @@ class Connection:
             neg_token,
         )
         _ = await proto.get_dcom_response(alter_context_pkg)
+
         if active_key and proto._auth_level >= RPC_C_AUTHN_LEVEL_PKT_INTEGRITY:
             proto._client_sign = sign_func_kerberos(active_key, etype)
             proto._client_seal = seal_func_kerberos(active_key, etype)
