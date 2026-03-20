@@ -158,61 +158,56 @@ def _get_active_key(asn1_data: bytes) -> Tuple[Optional[bytes], Optional[int]]:
     return active_key, seq_number
 
 
-def get_active_key(auth_bytes: bytes,
-                   service_session_key: bytes,
-                   etype: int) -> Tuple[Optional[bytes], Optional[int]]:
-    active_key, seq_number = None, None
-    kerberos_data = auth_bytes
-
+def extract_cipher_blob(auth_bytes: bytes, etype: int) -> Optional[bytes]:
     if auth_bytes.startswith(b'\xa1'):
         idx_a2 = auth_bytes.find(b'\xa2')
         if idx_a2 == -1:
             raise NoNewActiveKey()
 
         idx_04 = auth_bytes.find(b'\x04', idx_a2)
-        if idx_04 != -1:
-            pos = idx_04 + 1
-            lb = auth_bytes[pos]
-            pos += 1
-            if lb & 0x80:
-                n = lb & 0x7f
-                length = int.from_bytes(auth_bytes[pos:pos+n], 'big')
-                pos += n
-            else:
-                length = lb
-            kerberos_data = auth_bytes[pos: pos + length]
-        else:
+        if idx_04 == -1:
             raise NoNewActiveKey()
 
-    etype_idx = kerberos_data.find(bytes([0x02, 0x01, etype]))
+        length, header_len = get_asn1_len(auth_bytes, idx_04 + 1)
+        start_pos = idx_04 + 1 + header_len
+        kerberos_data = auth_bytes[start_pos: start_pos + length]
+    else:
+        kerberos_data = auth_bytes
+
+    etype_marker = bytes([0x02, 0x01, etype])
+    etype_idx = kerberos_data.find(etype_marker)
     if etype_idx == -1:
-        return None, None
+        return None
 
     idx_04_cipher = kerberos_data.find(b'\x04', etype_idx)
     if idx_04_cipher == -1:
-        return None, None
+        return None
 
-    pos = idx_04_cipher + 1
-    lb = kerberos_data[pos]
-    pos += 1
-    if lb & 0x80:
-        n = lb & 0x7f
-        c_length = int.from_bytes(kerberos_data[pos: pos + n], 'big')
-        pos += n
-    else:
-        c_length = lb
-    cipher_blob = kerberos_data[pos: pos + c_length]
+    c_length, c_header_len = get_asn1_len(kerberos_data, idx_04_cipher + 1)
+    c_start_pos = idx_04_cipher + 1 + c_header_len
+    cipher_blob = kerberos_data[c_start_pos: c_start_pos + c_length]
 
-    if etype == 23:  # RC4
-        cipher = decrypt_kerberos_rc4
-        offset = 8  # Skip 8 bytes confounder
-    elif etype in (17, 18):  # AES
-        cipher = decrypt_kerberos_aes_cts
-        offset = 16  # Skip 16 bytes confounder
-    else:
-        raise ValueError(f"Invalid E-type: {etype}")
+    return cipher_blob
 
-    decrypted = cipher(service_session_key, 12, cipher_blob)
-    asn1_data = decrypted[offset:]
-    active_key, seq_number = _get_active_key(asn1_data)
+
+def get_active_key(auth_bytes: bytes,
+                   service_session_key: bytes,
+                   etype: int) -> Tuple[Optional[bytes], Optional[int]]:
+    active_key, seq_number = None, None
+    cipher_blob = extract_cipher_blob(auth_bytes, etype)
+    if cipher_blob is not None:
+
+        if etype == 23:  # RC4
+            cipher = decrypt_kerberos_rc4
+            offset = 8  # Skip 8 bytes confounder
+        elif etype in (17, 18):  # AES
+            cipher = decrypt_kerberos_aes_cts
+            offset = 16  # Skip 16 bytes confounder
+        else:
+            raise ValueError(f"Invalid E-type: {etype}")
+
+        decrypted = cipher(service_session_key, 12, cipher_blob)
+        asn1_data = decrypted[offset:]
+        active_key, seq_number = _get_active_key(asn1_data)
+
     return active_key, seq_number
