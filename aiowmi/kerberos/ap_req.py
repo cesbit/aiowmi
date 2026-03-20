@@ -158,7 +158,7 @@ def _get_active_key(asn1_data: bytes) -> Tuple[Optional[bytes], Optional[int]]:
     return active_key, seq_number
 
 
-def extract_cipher_blob(auth_bytes: bytes, etype: int) -> Optional[bytes]:
+def _extract_cipher_blob(auth_bytes: bytes, etype: int) -> Optional[bytes]:
     if auth_bytes.startswith(b'\xa1'):
         idx_a2 = auth_bytes.find(b'\xa2')
         if idx_a2 == -1:
@@ -194,7 +194,7 @@ def get_active_key(auth_bytes: bytes,
                    service_session_key: bytes,
                    etype: int) -> Tuple[Optional[bytes], Optional[int]]:
     active_key, seq_number = None, None
-    cipher_blob = extract_cipher_blob(auth_bytes, etype)
+    cipher_blob = _extract_cipher_blob(auth_bytes, etype)
     if cipher_blob is not None:
 
         if etype == 23:  # RC4
