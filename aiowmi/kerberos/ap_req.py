@@ -1,5 +1,6 @@
 from typing import Optional, Tuple
 from datetime import datetime, timezone
+from .asn1 import get_asn1_len
 from .asn1 import asn1_len, asn1_tag, asn1_gt, asn1_int, asn1_ostr
 from .tools import encrypt_kerberos_rc4, decrypt_kerberos_rc4
 from .tools import decrypt_kerberos_aes_cts, encrypt_kerberos_aes_cts
@@ -101,56 +102,58 @@ def build_ap_req(username: str,
     return b'\x6e' + asn1_len(inner_pdu) + inner_pdu
 
 
-def peel_tag(data: bytes,
-             pos: int) -> Tuple[Optional[int], Optional[bytes], int]:
-    if pos >= len(data):
-        return None, None, pos
-    tag = data[pos]
-    p = pos + 1
-    if p >= len(data):
-        return None, None, p
-    lb = data[p]
-    p += 1
-    if lb & 0x80:
-        n = lb & 0x7f
-        length = int.from_bytes(data[p: p + n], 'big')
-        p += n
-    else:
-        length = lb
-    return tag, data[p: p + length], p + length
-
-
 def _get_active_key(asn1_data: bytes) -> Tuple[Optional[bytes], Optional[int]]:
-    active_key = None
-    seq_number = None
     n = len(asn1_data)
     p = 0
-    while p < n and asn1_data[p] < 0xa0:
-        p += 1
 
     while p < n:
-        tag, content, next_p = peel_tag(asn1_data, p)
-        if tag is None:
-            break
+        if asn1_data[p] in (0xa0, 0xa1, 0xa2, 0xa3):
+            try:
+                length, header_len = get_asn1_len(asn1_data, p + 1)
+                if p + 1 + header_len + length <= n:
+                    break
+            except Exception:
+                pass
+        p += 1
+
+    active_key = None
+    seq_number = None
+
+    while p < n:
+        tag = asn1_data[p]
+        length, header_len = get_asn1_len(asn1_data, p + 1)
+
+        content_start = p + 1 + header_len
+        content = asn1_data[content_start: content_start + length]
 
         if tag == 0xa2:
-            if content.startswith(b'\x30'):
-                _, c_30, _ = peel_tag(content, 0)
-                kp = 0
-                while kp < len(c_30):
-                    t_k, c_k, next_k = peel_tag(c_30, kp)
-                    if t_k == 0xa1:
-                        _, active_key, _ = peel_tag(c_k, 0)
-                    kp = next_k
+            work_data = content
+            if len(content) > 0 and content[0] == 0x30:
+                s_len, s_h = get_asn1_len(content, 1)
+                work_data = content[1 + s_h: 1 + s_h + s_len]
+
+            sp = 0
+            while sp < len(work_data):
+                st = work_data[sp]
+                sl, sh = get_asn1_len(work_data, sp + 1)
+
+                if st == 0xa1:
+                    inner = work_data[sp + 1 + sh: sp + 1 + sh + sl]
+                    if len(inner) > 0 and inner[0] == 0x04:
+                        kl, kh = get_asn1_len(inner, 1)
+                        active_key = inner[1 + kh: 1 + kh + kl]
+                    break
+                sp += 1 + sh + sl
 
         elif tag == 0xa3:
-            if content.startswith(b'\x02'):
-                _, val, _ = peel_tag(content, 0)
-                seq_number = int.from_bytes(val, 'big')
+            if len(content) > 0 and content[0] == 0x02:
+                il, ih = get_asn1_len(content, 1)
+                seq_bytes = content[1+ih: 1+ih+il]
+                seq_number = int.from_bytes(seq_bytes, 'big')
             else:
                 seq_number = int.from_bytes(content, 'big')
 
-        p = next_p
+        p = content_start + length
 
     return active_key, seq_number
 
