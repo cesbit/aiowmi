@@ -126,7 +126,10 @@ class Protocol(asyncio.Protocol):
         socket = self._transport.get_extra_info('socket', None)
         if socket is None:
             return 'unknown_addr'
-        addr, port = socket.getpeername()[:2]
+        try:
+            addr, port = socket.getpeername()[:2]
+        except OSError as e:
+            return str(e) or 'unknown transport error'
         return f'{addr}:{port}'
 
     def close(self):
