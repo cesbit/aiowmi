@@ -21,17 +21,19 @@ def uuid_to_bin(uuid: str) -> bytes:
         r"([\dA-Fa-f]{4})-"
         r"([\dA-Fa-f]{4})"
         r"([\dA-Fa-f]{8})", uuid)
+    if matches is None:
+        raise ValueError(f'Invalif uuid: {uuid}')
 
     uuid1, uuid2, uuid3, uuid4, uuid5, uuid6 = [
         int(x, 16) for x in matches.groups()]
 
     # Little endian
-    uuid = struct.pack('<LHH', uuid1, uuid2, uuid3)
+    uuid_bytes = struct.pack('<LHH', uuid1, uuid2, uuid3)
 
     # Big endian
-    uuid += struct.pack('>HHL', uuid4, uuid5, uuid6)
+    uuid_bytes += struct.pack('>HHL', uuid4, uuid5, uuid6)
 
-    return uuid
+    return uuid_bytes
 
 
 def ver_to_bin(ver: str) -> bytes:

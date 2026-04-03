@@ -39,30 +39,6 @@ def gen_cid() -> bytes:
         random.randrange(top))
 
 
-def _des_expand_key(key, offset: int) -> bytes:
-    # Expand the key from a 7-byte password key into a 8-byte DES key
-    key = bytearray(key[offset:offset+7]).ljust(7, b'\x00')
-    return bytes(bytearray((
-        (((key[0] >> 1) & 0x7f) << 1)
-        (((key[0] & 0x01) << 6 | ((key[1] >> 2) & 0x3f)) << 1)
-        (((key[1] & 0x03) << 5 | ((key[2] >> 3) & 0x1f)) << 1)
-        (((key[2] & 0x07) << 4 | ((key[3] >> 4) & 0x0f)) << 1)
-        (((key[3] & 0x0f) << 3 | ((key[4] >> 5) & 0x07)) << 1)
-        (((key[4] & 0x1f) << 2 | ((key[5] >> 6) & 0x03)) << 1)
-        (((key[5] & 0x3f) << 1 | ((key[6] >> 7) & 0x01)) << 1)
-        ((key[6] & 0x7f) << 1))))
-
-
-def compute_lmhash(password: str):
-    # This is done according to Samba's encryption
-    # specification (docs/html/ENCRYPTION.html)
-    password = password.upper().encode("latin-1")
-    key = _des_expand_key(password, 0)
-    lmhash = DES.new(key, DES.MODE_ECB).encrypt(KNOWN_DES_INPUT)
-    key = _des_expand_key(password, 7)
-    return lmhash + DES.new(key, DES.MODE_ECB).encrypt(KNOWN_DES_INPUT)
-
-
 def compute_nthash(password: str):
     # This is done according to Samba's encryption
     # specification (docs/html/ENCRYPTION.html)
@@ -104,6 +80,7 @@ def read_string_bindings(data: bytes, offset: int) -> Tuple[list, int]:
 
         current_pos = offset
         found = False
+        end = 0
         while current_pos + 1 < data_len:
             if data[current_pos:current_pos+2] == b'\x00\x00':
                 end = current_pos + 2
@@ -149,5 +126,9 @@ def dt_fmt(dt: datetime.datetime) -> str:
     WMI Query Language (WQL) queries format.
     https://docs.microsoft.com/en-us/windows/win32/wmisdk/cim-datetime
     """
-    minutes = dt.utcoffset().total_seconds() // 60
+    offset = dt.utcoffset()
+    if offset is not None:
+        minutes = offset.total_seconds() // 60
+    else:
+        minutes = 0
     return f"{dt.strftime('%Y-%m-%d %H:%M:%S')}{minutes:+04g}"

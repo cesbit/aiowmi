@@ -50,6 +50,8 @@ class QContext:
         return self
 
     async def start(self):
+        assert self._conn is not None, 'no connection'
+        assert self._query is not None, 'no connection (query)'
         if self._conn._namespace != self._query.namespace:
             await self._conn.login_ntlm(
                 self._proto, namespace=self._query.namespace)
@@ -65,7 +67,7 @@ class QContext:
         # Both conn and quert are no longer required
         self._conn = None
         self._query = None
-
+        assert self._proto is not None, 'no protocol'
         request = RpcRequest(
             op_num=20, uuid_str=self._proto._interface.get_ipid())
         request.set_pdu_data(pdu_data)

@@ -86,7 +86,7 @@ class Protocol(asyncio.Protocol):
         req, data, = self._requests.get(self._buf.call_id), self._buf.data
         if req is None:
             if more:
-                self.data_received(more)
+                self._buf.data += more
             return
 
         self._buf = None

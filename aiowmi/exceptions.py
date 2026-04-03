@@ -2095,7 +2095,7 @@ class RpcNoContextAvailable(RpcException):
 
 
 class RpcSecPkgError(RpcException):
-    msg = 'RPC_S_SEC_PKG_ERROR'
+    msg = 'RPC_S_SEC_PKG_ERROR; Please verify credentials and time/date sync'
 
 
 _RPC_EX_LOOKUP = {

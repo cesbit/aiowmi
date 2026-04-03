@@ -82,12 +82,14 @@ class RpcResponse(RpcBaseResp):
 
                 if auth.auth_level == RPC_C_AUTHN_LEVEL_PKT_PRIVACY:
                     if auth.auth_type == RPC_C_AUTHN_WINNT:
+                        assert proto._server_seal is not None
                         message, signature = proto._server_seal(
                             flags=proto._flags,
                             seq_num=proto._dcom._seq_num,
                             message_to_sign=resp,
                             message_to_encrypt=resp)
                     elif auth.auth_type == RPC_C_AUTHN_GSS_NEGOTIATE:
+                        assert proto._server_seal is not None
                         message = proto._server_seal(
                             cipher_text=resp,
                             auth_data=auth.auth_value)
@@ -104,6 +106,8 @@ class RpcResponse(RpcBaseResp):
                 message = resp
             messages.append(message)
 
+        message = b''.join(messages)
+
         if not message.endswith(b'\x00\x00\x00\x00'):
             # First, rpc status codes should also have an rpc fault package
             # and are already handled.
@@ -112,4 +116,4 @@ class RpcResponse(RpcBaseResp):
             errcode, = struct.unpack('<L', message[-4:])
             raise wbem_exception(errcode)
 
-        return b''.join(messages)
+        return message

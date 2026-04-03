@@ -78,6 +78,7 @@ class RpcRequest(RpcCommon):
             self.op_num,
         )
         if self.pfc_flags & PFC_OBJECT_UUID:
+            assert self.uuid_str is not None
             uuid = uuid_to_bin(self.uuid_str)
             pdu_data += uuid
 

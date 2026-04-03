@@ -223,17 +223,30 @@ class Connection:
         proto = self._protocol
         proto._auth_level = RPC_C_AUTHN_LEVEL_PKT_PRIVACY
         proto._context_id = 79231
+        has_keys = self.has_valid_keys()
 
-        if self.has_valid_keys():
+        if has_keys:
             logger.info('Using Kerberos TGT/TGS from cache')
         else:
             logger.info('Start Kerberos negotiation for TGT/TGS')
             await self._negotiate_kerberos()
 
-        await self._bind_kerberos(IID_IRemoteSCMActivator, proto)
-        iface = await self._if_binding(proto,
-                                       bind_func=self._bind_kerberos,
-                                       m_auth_level=proto._auth_level)
+        try:
+            await self._bind_kerberos(IID_IRemoteSCMActivator, proto)
+            iface = await self._if_binding(proto,
+                                           bind_func=self._bind_kerberos,
+                                           m_auth_level=proto._auth_level)
+        except Exception:
+            if has_keys:
+                logger.warning('Failed to use cache, retry negotiation')
+                # keys should be valid, but if not accepted we should try
+                # a new negotiation process
+                self.close()
+                await self.connect(timeout=self._timeout)
+                self._tgs, self._tgt = None, None
+                return await self.negotiate_kerberos()
+            raise
+
         return iface
 
     async def _bind_kerberos(self, iid: bytes, proto: Protocol):
